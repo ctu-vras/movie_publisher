@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<library path="lib/libmovie_publisher_nodelet">
+  <class name="movie_publisher/movie_publisher_nodelet" type="movie_publisher::MoviePublisherNodelet" base_class_type="nodelet::Nodelet">
+    <description>
+      Publisher of movie files to ROS image topics.
+    </description>
+  </class>
+</library>

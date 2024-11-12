@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<library path="lib/libexiftool_metadata_extractor">
+  <class name="movie_publisher/exiftool_metadata_extractor" type="movie_publisher::ExiftoolMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Metadata extractor utilizing exiftool.
+    </description>
+  </class>
+</library>

@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<package format="3">
+  <name>camera_info_manager_lib</name>
+  <version>1.4.0</version>
+  <description>camera_info_manager API without an active ROS node.</description>
+
+  <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>
+  <author email="peckama2@fel.cvut.cz">Martin Pecka</author>
+
+  <license file="../LICENSES/BSD-3-Clause.txt">BSD</license>
+
+  <url type="repository">https://github.com/ctu-vras/movie_publisher</url>
+  <url type="bugtracker">https://github.com/ctu-vras/movie_publisher/issues</url>
+  <url type="website">https://wiki.ros.org/camera_info_manager_lib</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>camera_calibration_parsers</build_depend>
+  <exec_depend>camera_calibration_parsers</exec_depend>
+
+  <depend>cras_cpp_common</depend>
+
+  <test_depend condition="$ROS_PYTHON_VERSION == 2">python-catkin-lint</test_depend>
+  <test_depend condition="$ROS_PYTHON_VERSION == 3">python3-catkin-lint</test_depend>
+  <test_depend>roslint</test_depend>
+  <test_depend>rostest</test_depend>
+
+  <export>
+    <rosdoc config="rosdoc.yaml" />
+  </export>
+</package>

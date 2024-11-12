@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<package format="3">
+  <name>lensfun_metadata_extractor</name>
+  <version>1.4.0</version>
+  <description>Metadata extractor utilizing the lensfun library.</description>
+
+  <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>
+  <author email="peckama2@fel.cvut.cz">Martin Pecka</author>
+
+  <license file="../LICENSES/BSD-3-Clause.txt">BSD</license>
+
+  <url type="repository">https://github.com/ctu-vras/movie_publisher</url>
+  <url type="bugtracker">https://github.com/ctu-vras/movie_publisher/issues</url>
+  <url type="website">https://wiki.ros.org/lensfun_metadata_extractor</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>cras_cpp_common</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>lensfun-dev</build_depend>
+  <build_depend>movie_publisher</build_depend>
+  <build_depend>pluginlib</build_depend>
+
+  <exec_depend>cras_cpp_common</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>lensfun</exec_depend>
+  <exec_depend>movie_publisher</exec_depend>
+
+  <test_depend condition="$ROS_PYTHON_VERSION == 2">python-catkin-lint</test_depend>
+  <test_depend condition="$ROS_PYTHON_VERSION == 3">python3-catkin-lint</test_depend>
+  <test_depend>roslint</test_depend>
+  <test_depend>rostest</test_depend>
+
+  <export>
+    <rosdoc config="rosdoc.yaml" />
+    <movie_publisher metadata_plugins="${prefix}/plugins.xml" />
+  </export>
+</package>

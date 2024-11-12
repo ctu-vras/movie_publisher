@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<library path="lib/libcamera_info_manager_metadata_extractor">
+  <class name="movie_publisher/caminfo_manager_metadata_extractor" type="movie_publisher::CamInfoManagerMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Metadata extractor that matches existing camera info to a particular camera and lens.
+    </description>
+  </class>
+</library>

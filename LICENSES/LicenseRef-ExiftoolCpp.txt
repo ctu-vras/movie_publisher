@@ -1,0 +1,4 @@
+Copyright © 2013-2019, Phil Harvey (philharvey66 at gmail.com)
+
+This is software, in whole or part, is free for use in non-commercial applications, provided that this copyright notice is retained in the code. A licensing fee may be required for use in a commercial application. Contact Phil Harvey for more information.
+
