@@ -25,7 +25,8 @@ class ExiftoolMetadataExtractor : public ExifBaseMetadataExtractor
 {
 public:
   ExiftoolMetadataExtractor(
-    const cras::LogHelperPtr& log, const std::string& filename, size_t width, size_t height);
+    const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
+    const std::string& filename, size_t width, size_t height);
   ~ExiftoolMetadataExtractor() override;
 
   std::string getName() const override;

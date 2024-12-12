@@ -14,8 +14,6 @@
 #include <regex>
 #include <unordered_map>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-
 #include <cras_cpp_common/expected.hpp>
 #include <cras_cpp_common/optional.hpp>
 #include <cras_cpp_common/param_utils/bound_param_helper.hpp>
@@ -227,7 +225,7 @@ void MovieReaderPrivate::extractMetadata()
     if (camName.has_value())
       CRAS_INFO("Camera: %s", camName.value().c_str());
   }
-  CRAS_INFO("Creation time: %s", boost::posix_time::to_iso_extended_string(this->metadataStartTime.toBoost()).c_str());
+  CRAS_INFO("Creation time: %s", cras::to_pretty_string(this->metadataStartTime).c_str());
   CRAS_INFO("Rotation is %d°.", this->metadataRotation);
   if (navMsg.has_value() || gpsMsg.has_value())
   {

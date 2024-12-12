@@ -8,9 +8,11 @@
  */
 
 #include <limits>
-#include <cras_cpp_common/type_utils.hpp>
+
 #include <exiv2/tags.hpp>
 
+#include <compass_conversions/compass_converter.h>
+#include <cras_cpp_common/type_utils.hpp>
 #include <movie_publisher/metadata/ExifBaseMetadataExtractor.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -60,12 +62,19 @@ inline cras::optional<ExifData<ExifSRational>> dmsToDegrees(
   return hmsToHours(degrees, minutes, seconds);
 }
 
+struct ExifBaseMetadataExtractorPrivate
+{
+  std::unique_ptr<compass_conversions::CompassConverter> compassConverter;
+  std::weak_ptr<MetadataManager> manager;
+};
+
 ExifBaseMetadataExtractor::ExifBaseMetadataExtractor(
-  const cras::LogHelperPtr& log, const size_t width, const size_t height)
-  : MetadataExtractor(log), width(width), height(height)
+  const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager, const size_t width, const size_t height)
+  : MetadataExtractor(log), width(width), height(height), data(new ExifBaseMetadataExtractorPrivate{})
 {
   this->width = width;
   this->height = height;
+  this->data->manager = manager;
 }
 
 ExifBaseMetadataExtractor::~ExifBaseMetadataExtractor() = default;
@@ -102,12 +111,19 @@ cras::optional<ros::Time> ExifBaseMetadataExtractor::getCreationTime()
     tags.push_back(maybeSubsec->key);
   }
 
-  ros::Time result = cras::parseTime(dateStr, offset);
-  if (result.isZero())
-    return cras::nullopt;
+  try
+  {
+    ros::Time result = cras::parseTime(dateStr, offset);
+    if (result.isZero())
+      return cras::nullopt;
 
-  CRAS_DEBUG_NAMED("exif_base", "Creation time read from EXIF tags %s.", cras::to_string(tags).c_str());
-  return result;
+    CRAS_DEBUG_NAMED("exif_base", "Creation time read from EXIF tags %s.", cras::to_string(tags).c_str());
+    return result;
+  }
+  catch (const std::invalid_argument& e)
+  {
+    return cras::nullopt;
+  }
 }
 
 cras::optional<std::string> ExifBaseMetadataExtractor::getCameraSerialNumber()
@@ -331,6 +347,9 @@ ExifBaseMetadataExtractor::getGNSSPosition()
     hasNavData = hasGpsData = true;
   }
 
+  if (hasNavData && this->data->compassConverter != nullptr)
+    this->data->compassConverter->setNavSatPos(navMsg);
+
   const auto gpsTime = this->getGPSTime();
   if (gpsTime.has_value())
   {
@@ -430,12 +449,14 @@ ExifBaseMetadataExtractor::getGNSSPosition()
 cras::optional<compass_msgs::Azimuth> ExifBaseMetadataExtractor::getAzimuth()
 {
   const auto gpsImgDirection = this->getGPSImgDirection();
+  const auto gpsImgDirectionRef = this->getGPSImgDirectionRef();
 
   if (!gpsImgDirection.has_value())
     return cras::nullopt;
 
   compass_msgs::Azimuth azimuthMsg;
-  azimuthMsg.reference = compass_msgs::Azimuth::REFERENCE_GEOGRAPHIC;
+  azimuthMsg.reference = gpsImgDirectionRef.value_or("T") == "M" ?
+    compass_msgs::Azimuth::REFERENCE_MAGNETIC : compass_msgs::Azimuth::REFERENCE_GEOGRAPHIC;
   azimuthMsg.azimuth = *gpsImgDirection;
   azimuthMsg.unit = compass_msgs::Azimuth::UNIT_DEG;
   azimuthMsg.orientation = compass_msgs::Azimuth::ORIENTATION_NED;
@@ -486,6 +507,13 @@ cras::optional<geometry_msgs::Vector3> ExifBaseMetadataExtractor::getAcceleratio
     acc.x, acc.y, acc.z, cras::to_string(tags).c_str());
 
   return acc;
+}
+
+compass_conversions::CompassConverter& ExifBaseMetadataExtractor::getCompassConverter()
+{
+  if (this->data->compassConverter == nullptr)
+    this->data->compassConverter = std::make_unique<compass_conversions::CompassConverter>(this->log, false);
+  return *this->data->compassConverter;
 }
 
 cras::optional<double> ExifBaseMetadataExtractor::getGPSLatitude()
@@ -568,8 +596,30 @@ cras::optional<double> ExifBaseMetadataExtractor::getGPSTrack()
   if (!gpsTrackRef.has_value() || !gpsTrack.has_value())
     return cras::nullopt;
 
-  // TODO if reference is "M", magnetic, we ignore the needed conversion for now
-  const auto track = gpsTrack->value;
+  auto track = gpsTrack->value;
+
+  // If reference is "M", magnetic, convert the track to true north.
+  if (gpsTrackRef.has_value() && gpsTrackRef->value == "M")
+  {
+    compass_msgs::Azimuth az;
+    auto manager = this->data->manager.lock();
+    az.header.stamp = cras::nowFallbackToWall();
+    if (const auto creationTime = manager->getCreationTime(); creationTime.has_value())
+      az.header.stamp = *creationTime;
+    else if (const auto gnssPosition = manager->getGNSSPosition(); gnssPosition.second.has_value())
+      az.header.stamp = ros::Time(gnssPosition.second->time);
+    az.azimuth = track;
+    az.unit = compass_msgs::Azimuth::UNIT_DEG;
+    az.orientation = compass_msgs::Azimuth::ORIENTATION_NED;
+    az.reference = compass_msgs::Azimuth::REFERENCE_UTM;
+
+    const auto maybeAzimuth = this->getCompassConverter().convertAzimuth(
+      az, compass_msgs::Azimuth::UNIT_DEG, compass_msgs::Azimuth::ORIENTATION_NED,
+      compass_msgs::Azimuth::REFERENCE_GEOGRAPHIC);
+
+    if (maybeAzimuth.has_value())
+      track = maybeAzimuth->azimuth;
+  }
 
   const auto result = track;
   cras::TempLocale l(LC_ALL, "en_US.UTF-8");
@@ -586,13 +636,22 @@ cras::optional<double> ExifBaseMetadataExtractor::getGPSImgDirection()
   if (!gpsImgDirectionRef.has_value() || !gpsImgDirection.has_value())
     return cras::nullopt;
 
-  // TODO if reference is "M", magnetic, we ignore the needed conversion for now
   const auto azimuth = gpsImgDirection->value;
 
   cras::TempLocale l(LC_ALL, "en_US.UTF-8");
   CRAS_DEBUG_NAMED("exif_base", "Image direction %.1f° form North has been read from Exif tags %s and %s.",
     azimuth, gpsImgDirectionRef->key.c_str(), gpsImgDirection->key.c_str());
   return azimuth;
+}
+
+cras::optional<std::string> ExifBaseMetadataExtractor::getGPSImgDirectionRef()
+{
+  const auto gpsImgDirectionRef = this->getExifGpsImgDirectionRef();
+
+  if (!gpsImgDirectionRef.has_value())
+    return cras::nullopt;
+
+  return gpsImgDirectionRef->value;
 }
 
 cras::optional<ros::Time> ExifBaseMetadataExtractor::getGPSTime()

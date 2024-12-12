@@ -196,8 +196,9 @@ struct Exiv2MetadataPrivate : cras::HasLogger
 };
 
 Exiv2MetadataExtractor::Exiv2MetadataExtractor(
-  const cras::LogHelperPtr& log, const std::string& filename, const size_t width, const size_t height)
-  : ExifBaseMetadataExtractor(log, width, height), data(new Exiv2MetadataPrivate(log))
+  const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
+  const std::string& filename, const size_t width, const size_t height)
+  : ExifBaseMetadataExtractor(log, manager, width, height), data(new Exiv2MetadataPrivate(log))
 {
   this->data->filename = filename;
 }
@@ -552,7 +553,8 @@ MetadataExtractor::Ptr Exiv2MetadataExtractorPlugin::getExtractor(const Metadata
   if (params.log == nullptr || params.filename.empty() || params.width == 0 || params.height == 0)
     return nullptr;
 
-  return std::make_shared<Exiv2MetadataExtractor>(params.log, params.filename, params.width, params.height);
+  return std::make_shared<Exiv2MetadataExtractor>(
+    params.log, params.manager, params.filename, params.width, params.height);
 }
 
 }

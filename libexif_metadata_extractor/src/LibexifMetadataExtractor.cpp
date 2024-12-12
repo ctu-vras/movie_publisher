@@ -293,8 +293,9 @@ struct LibexifMetadataPrivate : cras::HasLogger
 };
 
 LibexifMetadataExtractor::LibexifMetadataExtractor(
-  const cras::LogHelperPtr& log, const std::string& filename, const size_t width, const size_t height)
-  : ExifBaseMetadataExtractor(log, width, height), data(new LibexifMetadataPrivate(log))
+  const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
+  const std::string& filename, const size_t width, const size_t height)
+  : ExifBaseMetadataExtractor(log, manager, width, height), data(new LibexifMetadataPrivate(log))
 {
   this->data->filename = filename;
 }
@@ -685,7 +686,8 @@ MetadataExtractor::Ptr LibexifMetadataExtractorPlugin::getExtractor(const Metada
   if (params.log == nullptr || params.filename.empty() || params.width == 0 || params.height == 0)
     return nullptr;
 
-  return std::make_shared<LibexifMetadataExtractor>(params.log, params.filename, params.width, params.height);
+  return std::make_shared<LibexifMetadataExtractor>(
+    params.log, params.manager, params.filename, params.width, params.height);
 }
 
 }

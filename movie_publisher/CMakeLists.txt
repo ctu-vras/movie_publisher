@@ -7,6 +7,7 @@ project(movie_publisher)
 set(CMAKE_CXX_STANDARD 17)
 
 find_package(catkin REQUIRED COMPONENTS
+  compass_conversions
   compass_msgs
   cras_cpp_common
   gps_common

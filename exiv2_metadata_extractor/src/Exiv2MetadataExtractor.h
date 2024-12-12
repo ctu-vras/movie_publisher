@@ -31,7 +31,8 @@ class Exiv2MetadataExtractor : public ExifBaseMetadataExtractor
 {
 public:
   Exiv2MetadataExtractor(
-    const cras::LogHelperPtr& log, const std::string& filename, size_t width, size_t height);
+    const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
+    const std::string& filename, size_t width, size_t height);
   ~Exiv2MetadataExtractor() override;
 
   std::string getName() const override;

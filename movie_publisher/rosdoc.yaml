@@ -1,0 +1,4 @@
+- builder: doxygen
+  required: True
+  file_patterns: '*.h *.hpp *.hh *.dox'
+  exclude_patterns: 'src/*_private.h'

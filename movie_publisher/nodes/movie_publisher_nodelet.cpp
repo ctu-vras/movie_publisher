@@ -226,7 +226,6 @@ public:
       {.resultToStr = &timestampSourceToStr, .toResult = &parseTimestampSource});
     this->reader->setTimestampSource(timestampSource);
 
-
     const auto pubQueueSize =
       this->privateParams()->getParam("publisher_queue_size", immediateMode ? 1000 : 10, "messages");
     const auto waitAfterPublisherCreated =

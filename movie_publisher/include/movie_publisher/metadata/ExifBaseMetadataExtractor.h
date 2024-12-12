@@ -21,6 +21,11 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/NavSatFix.h>
 
+namespace compass_conversions
+{
+  class CompassConverter;
+}
+
 namespace movie_publisher
 {
 
@@ -41,11 +46,13 @@ struct ExifData
   T value;
 };
 
+struct ExifBaseMetadataExtractorPrivate;
+
 class ExifBaseMetadataExtractor : public MetadataExtractor
 {
 public:
   ExifBaseMetadataExtractor(
-    const cras::LogHelperPtr& log, size_t width, size_t height);
+    const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager, size_t width, size_t height);
   ~ExifBaseMetadataExtractor() override;
 
   cras::optional<ros::Time> getCreationTime() override;
@@ -68,12 +75,15 @@ protected:
   size_t width;
   size_t height;
 
+  compass_conversions::CompassConverter& getCompassConverter();
+
   virtual cras::optional<double> getGPSLatitude();
   virtual cras::optional<double> getGPSLongitude();
   virtual cras::optional<double> getGPSAltitude();
   virtual cras::optional<double> getGPSSpeed();
   virtual cras::optional<double> getGPSTrack();
   virtual cras::optional<double> getGPSImgDirection();
+  virtual cras::optional<std::string> getGPSImgDirectionRef();
   virtual cras::optional<ros::Time> getGPSTime();
 
   virtual cras::optional<ExifData<ExifAscii>> getExifMake() {return cras::nullopt;}
@@ -113,6 +123,9 @@ protected:
   virtual cras::optional<ExifData<ExifSRational>> getExifAcceleration(size_t n) {return cras::nullopt;}
   virtual cras::optional<ExifData<ExifSRational>> getExifRollAngle() {return cras::nullopt;}
   virtual cras::optional<ExifData<ExifSRational>> getExifPitchAngle() {return cras::nullopt;}
+
+private:
+  std::unique_ptr<ExifBaseMetadataExtractorPrivate> data;  //!< \brief PIMPL
 };
 
 }
