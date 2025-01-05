@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   compass_conversions
   compass_msgs
   cras_cpp_common
+  cras_topic_tools
   gps_common
   image_geometry
   image_transport
@@ -32,21 +33,18 @@ catkin_package(
 
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(LIBAVUTIL libavutil REQUIRED)
-pkg_check_modules(LIBAVCODEC libavcodec REQUIRED)
-pkg_check_modules(LIBAVFILTER libavfilter REQUIRED)
-pkg_check_modules(LIBAVFORMAT libavformat REQUIRED)
-pkg_check_modules(LIBSWSCALE libswscale REQUIRED)
-add_library(ffmpeg INTERFACE IMPORTED)
-target_link_libraries(ffmpeg INTERFACE ${LIBAVUTIL_LIBRARIES} ${LIBAVCODEC_LIBRARIES} ${LIBAVFILTER_LIBRARIES} ${LIBAVFORMAT_LIBRARIES} ${LIBSWSCALE_LIBRARIES})
-target_include_directories(ffmpeg INTERFACE ${LIBAVUTIL_INCLUDE_DIRS} ${LIBAVCODEC_INCLUDE_DIRS} ${LIBAVFILTER_INCLUDE_DIRS} ${LIBAVFORMAT_INCLUDE_DIRS} ${LIBSWSCALE_INCLUDE_DIRS})
+pkg_check_modules(LIBAVUTIL libavutil REQUIRED IMPORTED_TARGET)
+pkg_check_modules(LIBAVCODEC libavcodec REQUIRED IMPORTED_TARGET)
+pkg_check_modules(LIBAVFILTER libavfilter REQUIRED IMPORTED_TARGET)
+pkg_check_modules(LIBAVFORMAT libavformat REQUIRED IMPORTED_TARGET)
+pkg_check_modules(LIBSWSCALE libswscale REQUIRED IMPORTED_TARGET)
+add_library(ffmpeg INTERFACE)
+target_link_libraries(ffmpeg INTERFACE PkgConfig::LIBAVUTIL PkgConfig::LIBAVCODEC PkgConfig::LIBAVFILTER PkgConfig::LIBAVFORMAT PkgConfig::LIBSWSCALE)
 
-find_package(Filesystem REQUIRED)  # From cras_cpp_common, provides std::filesystem target
+# From cras_cpp_common, provides std::filesystem target
+find_package(Filesystem REQUIRED COMPONENTS Final Experimental Boost)
 
-pkg_check_modules(MUPARSER muparser REQUIRED)
-add_library(libmuparser INTERFACE IMPORTED)
-target_link_libraries(libmuparser INTERFACE ${MUPARSER_LIBRARIES})
-target_include_directories(libmuparser INTERFACE ${MUPARSER_INCLUDE_DIRS})
+pkg_check_modules(MUPARSER muparser REQUIRED IMPORTED_TARGET)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
@@ -58,7 +56,7 @@ add_library(movie_reader
   src/movie_reader_ros.cpp
   src/parsing_utils.cpp
 )
-target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg libmuparser std::filesystem)
+target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg PkgConfig::MUPARSER std::filesystem)
 
 add_library(movie_reader_metadata_plugins
   src/metadata/FileMetadataExtractor.cpp

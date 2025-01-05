@@ -18,16 +18,13 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package()
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(LENSFUN lensfun REQUIRED)
-add_library(lensfun INTERFACE IMPORTED)
-target_link_libraries(lensfun INTERFACE ${LENSFUN_LINK_LIBRARIES})
-target_include_directories(lensfun INTERFACE ${LENSFUN_INCLUDE_DIRS})
+pkg_check_modules(LENSFUN lensfun REQUIRED IMPORTED_TARGET)
 
 include_directories(${catkin_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} src/LensfunMetadataExtractor.cpp)
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE lensfun)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE PkgConfig::LENSFUN)
 
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

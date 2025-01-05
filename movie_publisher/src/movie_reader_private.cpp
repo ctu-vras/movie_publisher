@@ -85,6 +85,12 @@ AVRational ros_time_to_av_q(const ros::Time& time)
 MovieReaderPrivate::MovieReaderPrivate(const cras::LogHelperPtr& log, const cras::BoundParamHelperPtr& params) :
   cras::HasLogger(log), params(params)
 {
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+  av_register_all();
+#endif
+#if LIBAVFILTER_VERSION_INT < AV_VERSION_INT(7, 14, 100)
+  avfilter_register_all();
+#endif
 }
 
 MovieReaderPrivate::~MovieReaderPrivate()

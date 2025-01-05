@@ -31,7 +31,7 @@ movie_publisher::MetadataManager::Ptr getExtractor(const std::string& filename, 
   return manager;
 }
 
-TEST(ExiftoolMetadataExtractor, FairphoneStill)  // NOLINT
+TEST(LibexifMetadataExtractor, FairphoneStill)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/fairphone/IMG_20241125_024757.jpg", 4000, 3000);
 
@@ -67,7 +67,7 @@ TEST(ExiftoolMetadataExtractor, FairphoneStill)  // NOLINT
   EXPECT_EQ(0, gps->status.status);
 }
 
-TEST(ExiftoolMetadataExtractor, FairphoneMovie)  // NOLINT
+TEST(LibexifMetadataExtractor, FairphoneMovie)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4", 1920, 1080);
 
@@ -90,7 +90,7 @@ TEST(ExiftoolMetadataExtractor, FairphoneMovie)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, LumixStill)  // NOLINT
+TEST(LibexifMetadataExtractor, LumixStill)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260334.JPG", 4592, 3448);
 
@@ -118,7 +118,7 @@ TEST(ExiftoolMetadataExtractor, LumixStill)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, LumixMovie)  // NOLINT
+TEST(LibexifMetadataExtractor, LumixMovie)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260657.MP4", 1920, 1080);
 
@@ -141,7 +141,7 @@ TEST(ExiftoolMetadataExtractor, LumixMovie)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, FfmpegProcessed)  // NOLINT
+TEST(LibexifMetadataExtractor, FfmpegProcessed)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/ffmpeg_processed/P1320029.MP4.mp4", 1920, 1080);
 
@@ -164,7 +164,7 @@ TEST(ExiftoolMetadataExtractor, FfmpegProcessed)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, IphoneStill)  // NOLINT
+TEST(LibexifMetadataExtractor, IphoneStill)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/iphone/20241005_160034_IMG_4998.jpg", 4032, 3024);
 
@@ -218,7 +218,7 @@ TEST(ExiftoolMetadataExtractor, IphoneStill)  // NOLINT
   EXPECT_EQ(gps_common::GPSFix::COVARIANCE_TYPE_APPROXIMATED, gps->position_covariance_type);
 }
 
-TEST(ExiftoolMetadataExtractor, IphoneMovie)  // NOLINT
+TEST(LibexifMetadataExtractor, IphoneMovie)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/iphone/IMG_2585.MOV", 1920, 1080);
 

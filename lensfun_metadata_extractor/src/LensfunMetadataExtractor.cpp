@@ -403,13 +403,13 @@ cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> LensfunMetada
     {
       case LF_DIST_MODEL_POLY3:
         r_d = r * (1 - d[0] + d[0] * std::pow(r, 2));
-        break;
+      break;
       case LF_DIST_MODEL_POLY5:
         r_d = r * (1 + d[0] * std::pow(r, 2) + d[1] * std::pow(r, 4));
-        break;
+      break;
       case LF_DIST_MODEL_PTLENS:
         r_d = r * (d[0] * std::pow(r, 3) + d[1] * std::pow(r, 2) + d[2] * r + 1 - d[0] - d[1] - d[2]);
-        break;
+      break;
       default:
         r_d = r;
     }
@@ -428,8 +428,9 @@ cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> LensfunMetada
     cv::CALIB_RATIONAL_MODEL;
 
   double rms = cv::calibrateCamera(
-    std::vector{{squareCorners}}, std::vector{{lfDistorted2dPoints}}, cv::Size(w, h),
-    camMatrix, distCoeffs, cv::noArray(), cv::noArray(), flags);
+    std::vector<std::vector<cv::Point3f>>{{squareCorners}},
+    std::vector<std::vector<cv::Point2f>>{{lfDistorted2dPoints}},
+    cv::Size(w, h), camMatrix, distCoeffs, cv::noArray(), cv::noArray(), flags);
 
   CRAS_DEBUG_NAMED("lensfun", "Distortion model estimated from lensfun DB with RMS error %f px.", rms);
 

@@ -33,7 +33,7 @@ bool AppleIosMakerNoteHeader::read(const Exiv2::byte* pData, size_t size) {
   return true;
 }
 
-std::ostream& printValue(std::ostream& os, const Exiv2::Value& value, const Exiv2::ExifData*)
+inline std::ostream& printValue(std::ostream& os, const Exiv2::Value& value, const Exiv2::ExifData*)
 {
   return os << value;
 }

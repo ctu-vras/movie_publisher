@@ -220,8 +220,10 @@ bool MovieReader::isSeekable() const
   if (this->data->formatContext == nullptr || this->data->codecContext == nullptr)
     return false;
 
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58, 6, 100)
   if (this->data->formatContext->ctx_flags & AVFMTCTX_UNSEEKABLE)
     return false;
+#endif
 
   // Due to bug https://trac.ffmpeg.org/ticket/6113, JPEG "streams" cannot be seeked to the beginning
   if (std::string(this->data->formatContext->iformat->name) == "image2" &&

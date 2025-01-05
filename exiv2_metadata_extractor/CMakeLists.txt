@@ -12,8 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
 )
 
-#catkin_lint: ignore missing_depend
-find_package(exiv2 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(EXIV2 exiv2 REQUIRED IMPORTED_TARGET)
 
 catkin_package()
 
@@ -21,7 +21,7 @@ include_directories(${catkin_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} src/Exiv2CustomMakernotes.cpp src/Exiv2MetadataExtractor.cpp)
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE exiv2lib)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE PkgConfig::EXIV2)
 
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

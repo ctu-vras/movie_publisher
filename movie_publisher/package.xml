@@ -19,6 +19,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>compass_conversions</build_depend>
+  <build_depend>cras_topic_tools</build_depend>
   <build_depend>ffmpeg-dev</build_depend>
   <build_depend>image_geometry</build_depend>
   <build_depend>image_transport</build_depend>
@@ -32,6 +33,7 @@
   <build_depend>tf2_ros</build_depend>
 
   <exec_depend>compass_conversions</exec_depend>
+  <exec_depend>cras_topic_tools</exec_depend>
   <exec_depend>ffmpeg</exec_depend>
   <exec_depend>image_geometry</exec_depend>
   <exec_depend>image_transport</exec_depend>

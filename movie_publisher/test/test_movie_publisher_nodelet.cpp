@@ -215,7 +215,7 @@ TEST(MoviePublisherNodelet, FairphoneMovie)  // NOLINT
   EXPECT_NEAR(ros::Time(1723725351, 71722222).toSec(), lastCompressedImages[0].header.stamp.toSec(), 0.2);
   EXPECT_EQ("bgr8; jpeg compressed bgr8", lastCompressedImages[0].format);
 
-  for (size_t i = 0; i < 50 &&\
+  for (size_t i = 0; i < 50 && \
     (lastImages.size() < 2 || lastCompressedImages.size() < 2) && ros::ok() && nodelet->ok(); ++i)
   {
     ros::spinOnce();
@@ -345,7 +345,7 @@ TEST(MoviePublisherNodelet, IphoneMovie)  // NOLINT
   EXPECT_NEAR(10000 * 10000, gps.position_covariance[2 * 3 + 2], 1e-6);
   EXPECT_EQ(gps_common::GPSFix::COVARIANCE_TYPE_APPROXIMATED, gps.position_covariance_type);
 
-  for (size_t i = 0; i < 50 &&\
+  for (size_t i = 0; i < 50 && \
     (lastImages.size() < 2 || lastCompressedImages.size() < 2) && ros::ok() && nodelet->ok(); ++i)
   {
     ros::spinOnce();

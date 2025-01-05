@@ -216,13 +216,15 @@ int ExiftoolMetadataExtractor::getPriority() const
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifMake()
 {
-  const std::list<std::string> keys = {"EXIF.IFD0.Camera.Make", "QuickTime.Keys.Camera.Make"};
+  const std::list<std::string> keys = {
+    "EXIF.IFD0.Camera.Make", "QuickTime.Keys.Camera.Make", "QuickTime.QuickTime.Camera.Make"};
   RETURN_STRING(keys);
 }
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifModel()
 {
-  const std::list<std::string> keys = {"EXIF.IFD0.Camera.Model", "QuickTime.Keys.Camera.Model"};
+  const std::list<std::string> keys = {
+    "EXIF.IFD0.Camera.Model", "QuickTime.Keys.Camera.Model", "QuickTime.QuickTime.Camera.Model"};
   RETURN_STRING(keys);
 }
 
@@ -234,7 +236,7 @@ cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifLensMake()
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifLensModel()
 {
   const std::list<std::string> keys = {"Composite.Composite.Camera.LensID", "QuickTime.Keys.Audio.CameraLensModel",
-    "*.CameraLensModel", "*.LensModel"};
+    "*.CameraLensModel", "*.LensModel", "QuickTime.QuickTime.Audio.CameraLens_model"};
   RETURN_STRING(keys);
 }
 
@@ -373,6 +375,7 @@ cras::optional<ExifData<ExifShort>> ExiftoolMetadataExtractor::getExifFocalLengt
   const auto focalLength35mmIt = getFirstValid(exifData, {
     "Composite.Composite.Camera.FocalLength35efl",
     "QuickTime.Keys.Audio.CameraFocalLength35mmEquivalent",
+    "QuickTime.QuickTime.Audio.CameraFocal_length35mm_equivalent",
   });
   if (focalLength35mmIt == exifData.end() || focalLength35mmIt->second->valueLen == 0 ||
       strcmp(focalLength35mmIt->second->value, "0") == 0)

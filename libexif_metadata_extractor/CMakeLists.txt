@@ -15,16 +15,13 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package()
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBEXIF libexif REQUIRED)
-add_library(libexif INTERFACE IMPORTED)
-target_link_libraries(libexif INTERFACE ${LIBEXIF_LINK_LIBRARIES})
-target_include_directories(libexif INTERFACE ${LIBEXIF_INCLUDE_DIRS})
+pkg_check_modules(LIBEXIF libexif REQUIRED IMPORTED_TARGET)
 
 include_directories(${catkin_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} src/LibexifCustomMakernotes.cpp src/LibexifMetadataExtractor.cpp)  #catkin_lint: ignore redundant_lib_prefix
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE libexif)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE PkgConfig::LIBEXIF)
 
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

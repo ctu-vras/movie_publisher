@@ -31,7 +31,7 @@ movie_publisher::MetadataManager::Ptr getExtractor(const std::string& filename, 
   return manager;
 }
 
-TEST(ExiftoolMetadataExtractor, FairphoneStill)  // NOLINT
+TEST(Exiv2MetadataExtractor, FairphoneStill)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/fairphone/IMG_20241125_024757.jpg", 4000, 3000);
 
@@ -67,7 +67,7 @@ TEST(ExiftoolMetadataExtractor, FairphoneStill)  // NOLINT
   EXPECT_EQ(0, gps->status.status);
 }
 
-TEST(ExiftoolMetadataExtractor, FairphoneMovie)  // NOLINT
+TEST(Exiv2MetadataExtractor, FairphoneMovie)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4", 1920, 1080);
 
@@ -90,7 +90,7 @@ TEST(ExiftoolMetadataExtractor, FairphoneMovie)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, LumixStill)  // NOLINT
+TEST(Exiv2MetadataExtractor, LumixStill)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260334.JPG", 4592, 3448);
 
@@ -118,7 +118,7 @@ TEST(ExiftoolMetadataExtractor, LumixStill)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, LumixMovie)  // NOLINT
+TEST(Exiv2MetadataExtractor, LumixMovie)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260657.MP4", 1920, 1080);
 
@@ -141,7 +141,7 @@ TEST(ExiftoolMetadataExtractor, LumixMovie)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, FfmpegProcessed)  // NOLINT
+TEST(Exiv2MetadataExtractor, FfmpegProcessed)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/ffmpeg_processed/P1320029.MP4.mp4", 1920, 1080);
 
@@ -164,12 +164,13 @@ TEST(ExiftoolMetadataExtractor, FfmpegProcessed)  // NOLINT
   EXPECT_FALSE(nav); EXPECT_FALSE(gps);
 }
 
-TEST(ExiftoolMetadataExtractor, IphoneStill)  // NOLINT
+TEST(Exiv2MetadataExtractor, IphoneStill)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/iphone/20241005_160034_IMG_4998.jpg", 4032, 3024);
 
   ASSERT_TRUE(m->getRotation()); EXPECT_EQ(0, *m->getRotation());
-  ASSERT_TRUE(m->getCreationTime()); EXPECT_EQ(cras::parseTime("2024-10-05 16:00:34.359+0200"), *m->getCreationTime());
+  ASSERT_TRUE(m->getCreationTime());
+  EXPECT_EQ(cras::parseTime("2024-10-05 16:00:34.359+0200"), *m->getCreationTime());
   EXPECT_FALSE(m->getCameraSerialNumber());
   ASSERT_TRUE(m->getCameraMake()); EXPECT_EQ("Apple", *m->getCameraMake());
   ASSERT_TRUE(m->getCameraModel()); EXPECT_EQ("iPhone 12 mini", *m->getCameraModel());
@@ -219,7 +220,7 @@ TEST(ExiftoolMetadataExtractor, IphoneStill)  // NOLINT
   EXPECT_EQ(gps_common::GPSFix::COVARIANCE_TYPE_APPROXIMATED, gps->position_covariance_type);
 }
 
-TEST(ExiftoolMetadataExtractor, IphoneMovie)  // NOLINT
+TEST(Exiv2MetadataExtractor, IphoneMovie)  // NOLINT
 {
   auto m = getExtractor(std::string(TEST_DATA_DIR) + "/iphone/IMG_2585.MOV", 1920, 1080);
 

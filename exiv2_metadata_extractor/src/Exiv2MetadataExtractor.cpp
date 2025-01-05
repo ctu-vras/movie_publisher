@@ -47,6 +47,21 @@ inline cras::optional<double> getExifRational(
   return (it == exifData.end() || n >= it->count()) ? cras::nullopt : cras::optional{it->value().toFloat(n)};
 }
 
+inline std::ostream& printValue(std::ostream& os, const Exiv2::Value& value, const Exiv2::ExifData*)
+{
+  return os << value;
+}
+
+inline std::ostream& printFloat(std::ostream& os, const Exiv2::Value& value, const Exiv2::ExifData*) {
+  Exiv2::Rational r = value.toRational();
+  if (r.second != 0) {
+    os << value.toFloat();
+  } else {
+    os << "(" << value << ")";
+  }
+  return os;
+}
+
 /**
  * \brief Private data.
  */
@@ -277,7 +292,7 @@ cras::optional<ExifData<ExifAscii>> Exiv2MetadataExtractor::getExifBodySerialNum
 
 cras::optional<ExifData<ExifAscii>> Exiv2MetadataExtractor::getExifDateTimeOriginal()
 {
-#if EXIV2_TEST_VERSION(0,27,4)
+#if EXIV2_TEST_VERSION(0, 27, 4)
   RETURN_STRING(Exiv2::dateTimeOriginal(*exifData));
 #else
   RETURN_STRING(exifData->findKey(Exiv2::ExifKey("Exif.Photo.DateTimeOriginal")));
@@ -286,7 +301,12 @@ cras::optional<ExifData<ExifAscii>> Exiv2MetadataExtractor::getExifDateTimeOrigi
 
 cras::optional<ExifData<ExifAscii>> Exiv2MetadataExtractor::getExifOffsetTimeOriginal()
 {
+#if EXIV2_TEST_VERSION(0, 27, 4)
   RETURN_STRING(exifData->findKey(Exiv2::ExifKey("Exif.Photo.OffsetTimeOriginal")));
+#else
+  Exiv2::TagInfo ti(0x9011, "0x9011", "", "", 5, 10, Exiv2::asciiString, 1, printValue);
+  RETURN_STRING(exifData->findKey(Exiv2::ExifKey(ti)));
+#endif
 }
 
 cras::optional<ExifData<ExifAscii>> Exiv2MetadataExtractor::getExifSubSecTimeOriginal()
@@ -406,7 +426,12 @@ cras::optional<ExifData<ExifShort>> Exiv2MetadataExtractor::getExifGpsDifferenti
 
 cras::optional<ExifData<ExifRational>> Exiv2MetadataExtractor::getExifGpsHPositioningError()
 {
+#if EXIV2_TEST_VERSION(0, 27, 4)
   RETURN_RATIONAL(exifData->findKey(Exiv2::ExifKey("Exif.GPSInfo.GPSHPositioningError")));
+#else
+  Exiv2::TagInfo ti(0x001f, "0x001f", "", "", 6, 12, Exiv2::unsignedRational, 1, printFloat);
+  RETURN_RATIONAL(exifData->findKey(Exiv2::ExifKey(ti)));
+#endif
 }
 
 cras::optional<ExifData<ExifAscii>> Exiv2MetadataExtractor::getExifGpsImgDirectionRef()

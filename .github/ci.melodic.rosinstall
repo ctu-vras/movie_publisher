@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
+- git:
+    local-name: ros-utils
+    uri: https://github.com/ctu-vras/ros-utils.git
+    version: master
+- git:
+    local-name: compass
+    uri: https://github.com/ctu-vras/compass.git
+    version: master
+# Fix https://github.com/ros/roslint/pull/90
+- git:
+    local-name: roslint
+    uri: https://github.com/peci1/roslint.git
+    version: patch-2
