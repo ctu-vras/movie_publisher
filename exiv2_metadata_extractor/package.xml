@@ -19,7 +19,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>cras_cpp_common</build_depend>
-  <build_depend>exiv2-dev</build_depend>
+  <build_depend>libexiv2-dev</build_depend>
   <build_depend>movie_publisher</build_depend>
   <build_depend>pluginlib</build_depend>
 

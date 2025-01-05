@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Extractor of metadata from an open LibAV stream.
  * \author Martin Pecka
  */
 
@@ -23,9 +23,18 @@ namespace movie_publisher
 
 struct LibavStreamMetadataPrivate;
 
+/**
+ * \brief Extractor of metadata from an open LibAV stream.
+ */
 class LibavStreamMetadataExtractor : public MetadataExtractor
 {
 public:
+  /**
+   * \brief Constructor.
+   * \param[in] log Logger.
+   * \param[in] avFormatContext LibAV context of the open movie.
+   * \param[in] streamIndex Index of the stream in the open movie.
+   */
   LibavStreamMetadataExtractor(
     const cras::LogHelperPtr& log, const AVFormatContext* avFormatContext, size_t streamIndex);
   ~LibavStreamMetadataExtractor() override;
@@ -39,9 +48,12 @@ public:
   std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>> getGNSSPosition() override;
 
 private:
-  std::unique_ptr<LibavStreamMetadataPrivate> data;
+  std::unique_ptr<LibavStreamMetadataPrivate> data;  //!< PIMPL
 };
 
+/**
+ * \brief Loader plugin for LibabStreamMetadataExtractor.
+ */
 struct LibavStreamMetadataExtractorPlugin : MetadataExtractorPlugin
 {
   MetadataExtractor::Ptr getExtractor(const MetadataExtractorParams& params) override;

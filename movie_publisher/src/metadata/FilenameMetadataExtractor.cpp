@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Extractor of metadata from filename.
  * \author Martin Pecka
  */
 

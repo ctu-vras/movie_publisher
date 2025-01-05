@@ -16,16 +16,29 @@
 
 namespace movie_publisher
 {
-
+/**
+ * \brief Private data.
+ */
 struct CamInfoManagerMetadataPrivate : public cras::HasLogger
 {
   explicit CamInfoManagerMetadataPrivate(const cras::LogHelperPtr& log) : cras::HasLogger(log) {}
 
-  std::weak_ptr<MetadataManager> manager;
-  std::list<std::string> calibrationURLs;
+  std::weak_ptr<MetadataManager> manager;  //!< Metadata manager.
+  std::list<std::string> calibrationURLs;  //!< The calibration URLs.
+  //! Instances of CameraInfoManager, on for each calibration URL.
   std::list<std::shared_ptr<camera_info_manager_lib::CameraInfoManager>> cameraInfoManagers;
+  //! Cache of loaded CameraInfo, indexed by focal length.
   mutable std::unordered_map<double, cras::optional<sensor_msgs::CameraInfo>> camInfoCache;
+  size_t width {0u};
+  size_t height {0u};
 
+  /**
+   * \brief Search for and retrieve the camera info corresponding to the current movie.
+   *
+   * This requires the metadata manager ot be able to extract focalLengthMM and cameraUniqueName.
+   *
+   * \return Camera info if it was found, or nothing.
+   */
   cras::optional<sensor_msgs::CameraInfo> getCameraInfo() const
   {
     const auto manager = this->manager.lock();
@@ -59,7 +72,14 @@ struct CamInfoManagerMetadataPrivate : public cras::HasLogger
       cameraInfoManager->setCameraName(cameraName);
       cameraInfoManager->setFocalLength(*focalLengthMM);
       if (cameraInfoManager->isCalibrated())
-        return this->camInfoCache[*focalLengthMM] = cameraInfoManager->getCameraInfo();
+      {
+        const auto& camInfo = cameraInfoManager->getCameraInfo();
+        if (camInfo.width == this->width && camInfo.height == this->height)
+          return this->camInfoCache[*focalLengthMM] = cameraInfoManager->getCameraInfo();
+        else
+          CRAS_DEBUG_NAMED("caminfo_manager",
+            "Skipping camera calibration because it has wrong image dimensions.");
+      }
     }
 
     return this->camInfoCache[*focalLengthMM] = cras::nullopt;
@@ -67,12 +87,14 @@ struct CamInfoManagerMetadataPrivate : public cras::HasLogger
 };
 
 CamInfoManagerMetadataExtractor::CamInfoManagerMetadataExtractor(
-  const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
+  const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager, const size_t width, const size_t height,
   const std::list<std::string>& calibrationURLs)
   : MetadataExtractor(log), data(new CamInfoManagerMetadataPrivate(log))
 {
   this->data->manager = manager;
   this->data->calibrationURLs = calibrationURLs;
+  this->data->width = width;
+  this->data->height = height;
 
   for (const auto& url : this->data->calibrationURLs)
   {
@@ -102,7 +124,7 @@ cras::optional<CI::_K_type> CamInfoManagerMetadataExtractor::getIntrinsicMatrix(
   if (!cameraInfo.has_value())
     return cras::nullopt;
 
-  CRAS_DEBUG_NAMED("caminfo_manager", "Camera intrinsics have been read from stored camera info.");
+  CRAS_DEBUG("Camera intrinsics have been read from stored camera info.");
   return cameraInfo->K;
 }
 
@@ -112,7 +134,7 @@ cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> CamInfoManage
   if (!cameraInfo.has_value())
     return cras::nullopt;
 
-  CRAS_DEBUG_NAMED("caminfo_manager", "Camera distortion parameters have been read from stored camera info.");
+  CRAS_DEBUG("Camera distortion parameters have been read from stored camera info.");
   return std::pair<CI::_distortion_model_type, CI::_D_type>{cameraInfo->distortion_model, cameraInfo->D};
 }
 
@@ -121,15 +143,25 @@ MetadataExtractor::Ptr CamInfoManagerMetadataExtractorPlugin::getExtractor(const
   if (params.log == nullptr || params.manager.lock() == nullptr || params.params == nullptr)
     return nullptr;
 
-  const auto& p = params.params->paramsInNamespace("caminfo_manager");
   const std::list<std::string> defaultCalibURLs
   {
     "",
-    "file://${ROS_HOME}/camera_info/${NAME}-${FOCAL_LENGTH:%.1fmm}.yaml"
+    "file://${ROS_HOME}/camera_info/${NAME}-${FOCAL_LENGTH:%0.01fmm}.yaml"
   };
-  const auto calibrationURLs = p->getParam("calibration_urls", defaultCalibURLs);
+  auto calibrationURLs = defaultCalibURLs;
 
-  return std::make_shared<CamInfoManagerMetadataExtractor>(params.log, params.manager, calibrationURLs);
+  try
+  {
+    const auto& p = params.params->paramsInNamespace("caminfo_manager");
+    calibrationURLs = p->getParam("calibration_urls", defaultCalibURLs);
+  }
+  catch (const std::runtime_error&)
+  {
+    // Parameter namespace does not exist.
+  }
+
+  return std::make_shared<CamInfoManagerMetadataExtractor>(
+    params.log, params.manager, params.width, params.height, calibrationURLs);
 }
 
 }

@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Implementation of some custom MakerNotes parsing for libexif.
  * \author Martin Pecka
  */
 

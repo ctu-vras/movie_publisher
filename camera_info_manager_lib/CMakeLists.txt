@@ -41,18 +41,16 @@ if (CATKIN_ENABLE_TESTING)
 
   # Roslint C++ - checks formatting and some other rules for C++ files
 
-  file(GLOB_RECURSE ROSLINT_INCLUDE include/*.h include/*.hpp)
-  file(GLOB_RECURSE ROSLINT_SRC src/*.cpp src/*.hpp src/*.h)
-  file(GLOB_RECURSE ROSLINT_TEST test/*.cpp)
+  file(GLOB_RECURSE ROSLINT_FILES include/*.h include/*.hpp src/*.cpp src/*.hpp src/*.h test/*.cpp)
 
   set(ROSLINT_CPP_OPTS "--extensions=h,hpp,hh,c,cpp,cc;--linelength=120;--filter=\
-    -build/header_guard,-readability/namespace,-whitespace/braces,-runtime/references,\
+    -build/header_guard,-build/include,-readability/namespace,-whitespace/braces,-runtime/references,\
     -build/c++11,-readability/nolint,-readability/todo,-legal/copyright")
-  roslint_cpp(${ROSLINT_INCLUDE} ${ROSLINT_SRC} ${ROSLINT_TEST})
+  roslint_cpp(${ROSLINT_FILES})
 
   roslint_add_test()
 
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_camera_info_manager_lib.cpp)
-# target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-
+  catkin_add_gtest(test_${PROJECT_NAME} test/test_camera_info_manager.cpp)
+  target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME} ${catkin_LIBRARIES})
+  target_compile_definitions(test_${PROJECT_NAME} PRIVATE -DTEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/test")
 endif()

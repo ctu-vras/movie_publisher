@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Metadata extractor using libexif backend.
  * \author Martin Pecka
  */
 
@@ -22,9 +22,20 @@ namespace movie_publisher
 
 struct LibexifMetadataPrivate;
 
+/**
+ * \brief Metadata extractor using libexif backend.
+ */
 class LibexifMetadataExtractor : public ExifBaseMetadataExtractor
 {
 public:
+  /**
+   * \brief Constructor.
+   * \param[in] log Logger.
+   * \param[in] manager Metadata manager.
+   * \param[in] filename Filename of the movie.
+   * \param[in] width Width of the movie [px].
+   * \param[in] height Height of the movie [px].
+   */
   LibexifMetadataExtractor(
     const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
     const std::string& filename, size_t width, size_t height);
@@ -76,6 +87,9 @@ private:
   std::unique_ptr<LibexifMetadataPrivate> data;
 };
 
+/**
+ * \brief Plugin for instantiating LibexifMetadataExtractor.
+ */
 struct LibexifMetadataExtractorPlugin : MetadataExtractorPlugin
 {
   MetadataExtractor::Ptr getExtractor(const MetadataExtractorParams& params) override;

@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Czech Technical University in Prague
 
+/**
+ * \file
+ * \brief Metadata extractor using exiv2 backend.
+ * \author Martin Pecka
+ */
+
+
 #include "Exiv2MetadataExtractor.h"
 
 #include <limits>
@@ -40,17 +47,20 @@ inline cras::optional<double> getExifRational(
   return (it == exifData.end() || n >= it->count()) ? cras::nullopt : cras::optional{it->value().toFloat(n)};
 }
 
+/**
+ * \brief Private data.
+ */
 struct Exiv2MetadataPrivate : cras::HasLogger
 {
-  std::string filename;
+  std::string filename;  //!< Filename of the movie.
 
-  Exiv2::Image::AutoPtr imagePtr;
-  cras::optional<Exiv2::Image*> image;
-  cras::optional<Exiv2::ExifData*> exifData;
+  Exiv2::Image::AutoPtr imagePtr;  //!< Instance of the parsed metadata.
+  cras::optional<Exiv2::Image*> image;  //!< Raw pointer to the parsed metadata.
+  cras::optional<Exiv2::ExifData*> exifData;  //!< Processed metadata.
 
-  std::unique_ptr<CustomMakernotes> makernotes;
+  std::unique_ptr<CustomMakernotes> makernotes;  //!< Custom MakerNotes.
 
-  bool metadataRead {false};
+  bool metadataRead {false};  //!< Whether metadata have already been read.
 
   explicit Exiv2MetadataPrivate(const cras::LogHelperPtr& log) : cras::HasLogger(log) {}
 
@@ -232,7 +242,7 @@ int Exiv2MetadataExtractor::getPriority() const
     return cras::nullopt; \
   }
 
-#define RETURN_STRING(expr) RETURN((expr), ExifAscii, it->value().toString())
+#define RETURN_STRING(expr) RETURN((expr), ExifAscii, cras::strip(it->value().toString()))
 #define RETURN_LONG(expr) RETURN((expr), ExifLong, it->value().toLong())
 #define RETURN_SHORT(expr) RETURN((expr), ExifShort, static_cast<ExifShort>(it->value().toLong()))
 #define RETURN_BYTE(expr) RETURN((expr), ExifByte, static_cast<ExifByte>(it->value().toLong()))
@@ -423,6 +433,7 @@ cras::optional<ExifData<ExifSRational>> Exiv2MetadataExtractor::getExifAccelerat
     if (this->data->makernotes != nullptr)
     {
       // Apple
+      // TODO the computation is not general enough. It worked for iPhone 12, but doesn't work for iPhone SE.
       const auto accScale = 1.0 / 12.8;  // This is a magic number that seems to fit the samples I saw
       size_t axis;
       double scale;
@@ -453,7 +464,7 @@ cras::optional<ExifData<ExifSRational>> Exiv2MetadataExtractor::getExifAccelerat
 
     // Panasonic
     {
-      const auto accScale = 1.0 / 28;  // This is a magic number that seems to fit the samples I saw
+      const auto accScale = 0.034795;  // This is a magic number that seems to fit the samples I saw
       std::string key;
       double scale;
       // Panasonic has X left, Y towards user, Z up

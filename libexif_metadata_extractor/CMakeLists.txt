@@ -56,7 +56,12 @@ if (CATKIN_ENABLE_TESTING)
 
   roslint_add_test()
 
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_camera_info_manager_lib.cpp)
-# target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+  catkin_add_gtest(test_${PROJECT_NAME} test/test_extractor.cpp)
+  target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME} ${catkin_LIBRARIES})
+  target_include_directories(test_${PROJECT_NAME} PRIVATE src)
+  target_compile_definitions(test_${PROJECT_NAME} PRIVATE TEST_DATA_DIR="${CATKIN_DEVEL_PREFIX}/share/test_data")
+
+  add_custom_command(TARGET test_${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../test_data" "${CATKIN_DEVEL_PREFIX}/share/test_data")
 
 endif()

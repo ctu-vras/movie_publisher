@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Extractor of metadata from filename.
  * \author Martin Pecka
  */
 
@@ -17,19 +17,30 @@
 
 namespace movie_publisher
 {
-
+/**
+ * \brief Extractor of metadata from filename.
+ */
 class FilenameMetadataExtractor : public MetadataExtractor
 {
 public:
+  /**
+   * \brief Constructor.
+   * \param[in] log Logger.
+   * \param[in] filename Filename of the movie.
+   */
   FilenameMetadataExtractor(const cras::LogHelperPtr& log, const std::string& filename);
+
   std::string getName() const override;
   int getPriority() const override;
   cras::optional<ros::Time> getCreationTime() override;
 
 private:
-  std::string filename;
+  std::string filename;  //!< Filename of the movie.
 };
 
+/**
+ * \brief Loader plugin for FilenameMetadataExtractor.
+ */
 struct FilenameMetadataExtractorPlugin : MetadataExtractorPlugin
 {
   MetadataExtractor::Ptr getExtractor(const MetadataExtractorParams& params) override;

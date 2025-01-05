@@ -1,4 +1,5 @@
 - builder: doxygen
   required: True
-  file_patterns: '*.h *.hpp *.hh *.dox'
+  file_patterns: '*.h *.hpp *.hh *.dox nodelets/*.cpp nodes/movie_to_bag.cpp'
   exclude_patterns: 'src/*_private.h'
+  use_mdfile_as_mainpage: 'README.md'

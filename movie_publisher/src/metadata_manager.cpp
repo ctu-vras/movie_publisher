@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Manager of multiple image metadata providers which can cooperate in parsing.
  * \author Martin Pecka
  */
 
@@ -38,6 +38,10 @@ namespace movie_publisher
 #define CHECK_CACHE_DEBUG_PRINT(getFn)
 #endif
 
+/**
+ * \brief Check if the function call result has already been cached. If so, return the cached result.
+ * \param[in] getFn Name of the function.
+ */
 #define CHECK_CACHE(getFn) \
   if (this->getFn##Result.has_value()) { \
     CHECK_CACHE_DEBUG_PRINT(getFn); \
@@ -53,6 +57,10 @@ namespace movie_publisher
 #define FUNCTION_HAS_OVERRIDE(extractor, getFn) (true)
 #endif
 
+/**
+ * \brief Call the given function in all extractors and return and cache the first valid result.
+ * \param[in] getFn Name of the function.
+ */
 #define CHECK_EXTRACTORS(getFn) \
   CHECK_CACHE(getFn) \
   if (this->stopRecursion(__func__, this)) \
@@ -70,9 +78,17 @@ namespace movie_publisher
       return this->getFn##Result.emplace(val); \
   }
 
+/**
+ * \brief Last statement. Call when extracting data from all extractors failed and nothing is cached.
+ * \param[in] getFn The function name.
+ */
 #define FINISH(getFn) \
   return this->getFn##Result.emplace(cras::nullopt);
 
+/**
+ * \brief Call the requested function only on the registered extractors and cache, nothing more.
+ * \param[in] getFn Name of the function.
+ */
 #define ONLY_CHECK_EXTRACTORS(getFn) \
   CHECK_EXTRACTORS(getFn) \
   FINISH(getFn)
@@ -349,7 +365,7 @@ cras::optional<CI::_K_type> MetadataManager::getIntrinsicMatrix()
   const auto focalLengthPx = this->getFocalLengthPx();
   if (focalLengthPx.has_value())
   {
-    CI::_K_type K;
+    CI::_K_type K{};
     K[0 * 3 + 0] = *focalLengthPx;
     K[1 * 3 + 1] = *focalLengthPx;
     K[0 * 3 + 2] = this->width / 2.0;

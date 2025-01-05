@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Extractor of metadata from an open LibAV stream.
  * \author Martin Pecka
  */
 

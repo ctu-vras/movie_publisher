@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Exiv2 custom MakerNotes.
  * \author Martin Pecka
  */
 
@@ -17,7 +17,9 @@
 
 namespace movie_publisher
 {
-
+/**
+ * \brief Header of a custom MakeNote.
+ */
 class MakerNoteHeader
 {
 public:
@@ -27,6 +29,9 @@ public:
   virtual size_t size() const = 0;
 };
 
+/**
+ * \brief All custom Makernotes.
+ */
 class CustomMakernotes
 {
 public:

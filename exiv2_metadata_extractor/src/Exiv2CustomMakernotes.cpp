@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // SPDX-FileCopyrightText: Czech Technical University in Prague
 
+/**
+ * \file
+ * \brief Exiv2 custom MakerNotes.
+ * \author Martin Pecka
+ */
+
 #include <exiv2/exiv2.hpp>
 
 #include "Exiv2CustomMakernotes.h"

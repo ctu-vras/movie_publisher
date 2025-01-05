@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Read a movie or image file.
  * \author Martin Pecka
  */
 
@@ -120,11 +120,13 @@ void MovieReader::setFrameId(const std::string& frameId, const std::string& opti
 {
   const auto optFrame = opticalFrameId.empty() ? frameId : opticalFrameId;
   this->data->frameId = frameId;
-  this->data->opticalFrameId = opticalFrameId;
+  this->data->opticalFrameId = optFrame;
   if (this->data->cameraInfoMsg.has_value())
     this->data->cameraInfoMsg->header.frame_id = optFrame;
   if (this->data->navSatFixMsg.has_value())
     this->data->navSatFixMsg->header.frame_id = frameId;
+  if (this->data->gpsMsg.has_value())
+    this->data->gpsMsg->header.frame_id = frameId;
   if (this->data->azimuthMsg.has_value())
     this->data->azimuthMsg->header.frame_id = frameId;
   if (this->data->imuMsg.has_value())
@@ -149,11 +151,13 @@ void MovieReader::setNumThreads(size_t numThreads)
 void MovieReader::setTimestampSource(const TimestampSource& source)
 {
   this->data->timestampSource = source;
+  this->data->updateMetadata(this->data->lastSeek);
 }
 
 void MovieReader::setTimestampOffset(const ros::Duration& offset)
 {
   this->data->timestampOffset = offset;
+  this->data->updateMetadata(this->data->lastSeek);
 }
 
 double MovieReader::getFrameRate() const
@@ -164,6 +168,11 @@ double MovieReader::getFrameRate() const
 ros::Duration MovieReader::getDuration() const
 {
   return this->data->getDuration();
+}
+
+ros::Time MovieReader::getMetadataStartTime() const
+{
+  return this->data->metadataStartTime;
 }
 
 size_t MovieReader::getNumFrames() const
@@ -229,10 +238,10 @@ bool MovieReader::isStillImage() const
 
 cras::expected<void, std::string> MovieReader::open(const std::string& filename)
 {
-  return open(filename, TimestampSource::RosTime);
+  return this->open(filename, TimestampSource::RosTime);
 }
 
-cras::expected<void, std::string> MovieReader::open(const std::string& filename, TimestampSource timestampSource)
+cras::expected<void, std::string> MovieReader::open(const std::string& filename, const TimestampSource timestampSource)
 {
   this->close();
 
@@ -382,27 +391,8 @@ cras::expected<std::pair<ros::Time, sensor_msgs::ImageConstPtr>, std::string> Mo
       AVFramePtr frame(av_frame_alloc());
       sensor_msgs::ImagePtr msg(new sensor_msgs::Image);
       msg->header.frame_id = this->data->opticalFrameId.empty() ? this->data->frameId : this->data->opticalFrameId;
+      msg->header.stamp = this->data->getTimestamp(rosPtsTime);
       msg->encoding = avPixFmtToRosEncoding.at(this->data->targetPixelFormat);
-
-      switch (this->data->timestampSource)
-      {
-        case TimestampSource::AbsoluteVideoTimecode:
-          msg->header.stamp = rosPtsTime;
-          break;
-        case TimestampSource::RelativeVideoTimecode:
-          msg->header.stamp.fromNSec((rosPtsTime - this->data->lastSeek).toNSec());
-          break;
-        case TimestampSource::AllZeros:
-          msg->header.stamp = {0, 0};
-          break;
-        case TimestampSource::RosTime:
-          msg->header.stamp = ros::Time::now();
-          break;
-        case TimestampSource::FromMetadata:
-          msg->header.stamp.fromNSec((this->data->metadataStartTime + (rosPtsTime - ros::Time{})).toNSec());
-          break;
-      }
-      msg->header.stamp += this->data->timestampOffset;
 
       if (this->data->metadataRotation != 0.0)
       {
@@ -437,7 +427,7 @@ cras::expected<std::pair<ros::Time, sensor_msgs::ImageConstPtr>, std::string> Mo
       for (const int size : frame->linesize)
         msg->step += size;
 
-      this->data->updateMetadata(msg->header.stamp);
+      this->data->updateMetadata(rosPtsTime);
 
       return std::make_pair(rosPtsTime, msg);
     }

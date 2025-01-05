@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Extractor of metadata from filesystem properties of the movie file.
  * \author Martin Pecka
  */
 
@@ -34,7 +34,9 @@ int FileMetadataExtractor::getPriority() const
 cras::optional<ros::Time> FileMetadataExtractor::getCreationTime()
 {
   struct stat fileStat{};
-  stat(this->filename.c_str(), &fileStat);
+  if (stat(this->filename.c_str(), &fileStat) != 0)
+    return cras::nullopt;
+
   if (fileStat.st_ctim.tv_sec != 0)
   {
     CRAS_DEBUG("Creation time read from file create time.");

@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief PIPML structure for MovieReader.
  * \author Martin Pecka
  */
 
@@ -137,6 +137,8 @@ ros::Duration MovieReaderPrivate::getDuration() const
 
 size_t MovieReaderPrivate::getNumFrames() const
 {
+  if (this->isStillImage())
+    return 1;
   const auto& stream = this->formatContext->streams[this->selectedStreamIndex];
   return static_cast<size_t>(stream->nb_frames);
 }
@@ -153,7 +155,7 @@ void MovieReaderPrivate::extractMetadata()
   const MetadataExtractorParams params = {
     this->log, this->metadataManager, this->params,
     this->filename, width, height,
-    this->formatContext, this->selectedStreamIndex
+    this->formatContext, this->selectedStreamIndex, this->isStillImage()
   };
   this->metadataManager->loadExtractorPlugins(params);
 
@@ -164,51 +166,60 @@ void MovieReaderPrivate::extractMetadata()
   if (cameraInfoMsg.has_value())
   {
     this->cameraInfoMsg = *cameraInfoMsg;
-    this->cameraInfoMsg->header.stamp = this->metadataStartTime;
+    this->cameraInfoMsg->header.frame_id = this->opticalFrameId;
+    this->cameraInfoMsg->header.stamp = this->getTimestamp(this->lastSeek);
   }
 
   const auto [navMsg, gpsMsg] = this->metadataManager->getGNSSPosition();
   if (navMsg.has_value())
   {
     this->navSatFixMsg = *navMsg;
-    this->navSatFixMsg->header.stamp = this->metadataStartTime;
+    this->navSatFixMsg->header.frame_id = this->frameId;
+    this->navSatFixMsg->header.stamp = this->getTimestamp(this->lastSeek);
   }
   if (gpsMsg.has_value())
   {
     this->gpsMsg = *gpsMsg;
-    this->gpsMsg->header.stamp = this->metadataStartTime;
+    this->gpsMsg->header.frame_id = this->frameId;
+    this->gpsMsg->header.stamp = this->getTimestamp(this->lastSeek);
   }
 
   const auto azimuth = this->metadataManager->getAzimuth();
   if (azimuth.has_value())
   {
     this->azimuthMsg = *azimuth;
-    this->azimuthMsg->header.stamp = this->metadataStartTime;
+    this->azimuthMsg->header.frame_id = this->frameId;
+    this->azimuthMsg->header.stamp = this->getTimestamp(this->lastSeek);
   }
 
   const auto imuMsg = this->metadataManager->getImu();
   if (imuMsg.has_value())
   {
     this->imuMsg = *imuMsg;
-    this->imuMsg->header.stamp = this->metadataStartTime;
+    this->imuMsg->header.frame_id = this->frameId;
+    this->imuMsg->header.stamp = this->getTimestamp(this->lastSeek);
   }
 
   const auto rollPitchOrientation = this->metadataManager->getRollPitchOrientation();
   if (rollPitchOrientation.has_value())
   {
     auto& tfMsg = this->zeroRollPitchTfMsg.emplace();
-    tfMsg.header.stamp = this->metadataStartTime;
+    tfMsg.header.frame_id = this->frameId;
+    tfMsg.child_frame_id = this->frameId + "_zero_roll_pitch";
+    tfMsg.header.stamp = this->getTimestamp(this->lastSeek);
     tf2::Quaternion quat;
     tf2::fromMsg(*rollPitchOrientation, quat);
     tfMsg.transform.rotation = tf2::toMsg(quat.inverse());
   }
 
   const auto opticalTf = this->metadataManager->getOpticalFrameTF();
-  if (opticalTf.has_value() && !this->opticalFrameId.empty())
+  if (opticalTf.has_value())
   {
     auto& msg = this->opticalTfMsg.emplace();
-    msg.header.stamp = this->metadataStartTime;
+    msg.header.stamp = this->getTimestamp(this->lastSeek);
+    msg.header.frame_id = this->frameId;
     msg.transform = *opticalTf;
+    msg.child_frame_id = this->opticalFrameId;
   }
 
   // Temporarily change to a UTF-8 locale so that we can print the ° characters.
@@ -264,22 +275,51 @@ void MovieReaderPrivate::extractMetadata()
   }
 }
 
-void MovieReaderPrivate::updateMetadata(const ros::Time& headerTime)
+void MovieReaderPrivate::updateMetadata(const ros::Time& ptsTime)
 {
   // TODO handle metadata that can be updated
+  const auto time = this->getTimestamp(ptsTime);
   if (this->azimuthMsg.has_value())
-    this->azimuthMsg->header.stamp = headerTime;
+    this->azimuthMsg->header.stamp = time;
   if (this->cameraInfoMsg.has_value())
-    this->cameraInfoMsg->header.stamp = headerTime;
+    this->cameraInfoMsg->header.stamp = time;
   if (this->navSatFixMsg.has_value())
-    this->navSatFixMsg->header.stamp = headerTime;
+    this->navSatFixMsg->header.stamp = time;
   if (this->gpsMsg.has_value())
-    this->gpsMsg->header.stamp = headerTime;
+    this->gpsMsg->header.stamp = time;
   if (this->imuMsg.has_value())
-    this->imuMsg->header.stamp = headerTime;
-  // opticalTfMsg is static TF, so don't update its stamp
+    this->imuMsg->header.stamp = time;
   if (this->zeroRollPitchTfMsg.has_value())
-    this->zeroRollPitchTfMsg->header.stamp = headerTime;
+    this->zeroRollPitchTfMsg->header.stamp = time;
+
+  // opticalTfMsg is static TF, so update its stamp only at the beginning
+  if (ptsTime == ros::Time{} || ptsTime == this->lastSeek)
+    this->opticalTfMsg->header.stamp = this->getTimestamp(this->lastSeek);
+}
+
+ros::Time MovieReaderPrivate::getTimestamp(const ros::Time& ptsTime) const
+{
+  ros::Time result;
+  switch (this->timestampSource)
+  {
+    case MovieReader::TimestampSource::AbsoluteVideoTimecode:
+      result = ptsTime;
+    break;
+    case MovieReader::TimestampSource::RelativeVideoTimecode:
+      result.fromNSec((ptsTime - this->lastSeek).toNSec());
+    break;
+    case MovieReader::TimestampSource::AllZeros:
+      result = {0, 0};
+    break;
+    case MovieReader::TimestampSource::RosTime:
+      result = ros::Time::now();
+    break;
+    case MovieReader::TimestampSource::FromMetadata:
+      result = this->metadataStartTime + (ptsTime - ros::Time{});
+    break;
+  }
+  result += this->timestampOffset;
+  return result;
 }
 
 cras::expected<AVCodec*, std::string> MovieReaderPrivate::selectStream()

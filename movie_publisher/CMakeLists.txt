@@ -15,10 +15,12 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   image_transport_codecs
   nodelet
+  rosbag
   roscpp
   sensor_msgs
   tf2
   tf2_geometry_msgs
+  tf2_msgs
   tf2_ros
 )
 
@@ -39,7 +41,12 @@ add_library(ffmpeg INTERFACE IMPORTED)
 target_link_libraries(ffmpeg INTERFACE ${LIBAVUTIL_LIBRARIES} ${LIBAVCODEC_LIBRARIES} ${LIBAVFILTER_LIBRARIES} ${LIBAVFORMAT_LIBRARIES} ${LIBSWSCALE_LIBRARIES})
 target_include_directories(ffmpeg INTERFACE ${LIBAVUTIL_INCLUDE_DIRS} ${LIBAVCODEC_INCLUDE_DIRS} ${LIBAVFILTER_INCLUDE_DIRS} ${LIBAVFORMAT_INCLUDE_DIRS} ${LIBSWSCALE_INCLUDE_DIRS})
 
-find_package(Filesystem REQUIRED)  # From cras_cpp_common
+find_package(Filesystem REQUIRED)  # From cras_cpp_common, provides std::filesystem target
+
+pkg_check_modules(MUPARSER muparser REQUIRED)
+add_library(libmuparser INTERFACE IMPORTED)
+target_link_libraries(libmuparser INTERFACE ${MUPARSER_LIBRARIES})
+target_include_directories(libmuparser INTERFACE ${MUPARSER_INCLUDE_DIRS})
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
@@ -48,8 +55,10 @@ add_library(movie_reader
   src/metadata_manager.cpp
   src/movie_reader.cpp
   src/movie_reader_private.cpp
+  src/movie_reader_ros.cpp
+  src/parsing_utils.cpp
 )
-target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg std::filesystem)
+target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg libmuparser std::filesystem)
 
 add_library(movie_reader_metadata_plugins
   src/metadata/FileMetadataExtractor.cpp
@@ -58,9 +67,16 @@ add_library(movie_reader_metadata_plugins
 )
 target_link_libraries(movie_reader_metadata_plugins PUBLIC ${catkin_LIBRARIES} movie_reader PRIVATE ffmpeg std::filesystem)
 
-add_library(${PROJECT_NAME}_nodelet nodes/${PROJECT_NAME}_nodelet.cpp)
+add_executable(movie_to_bag nodes/movie_to_bag.cpp)
+target_link_libraries(movie_to_bag PUBLIC movie_reader ${catkin_LIBRARIES} PRIVATE std::filesystem)
+
+add_library(${PROJECT_NAME}_nodelet nodelets/${PROJECT_NAME}_nodelet.cpp)
 target_link_libraries(${PROJECT_NAME}_nodelet PUBLIC movie_reader ${catkin_LIBRARIES})
 cras_node_from_nodelet(${PROJECT_NAME}_nodelet ${PROJECT_NAME}::MoviePublisherNodelet OUTPUT_NAME ${PROJECT_NAME} ANONYMOUS)
+
+install(TARGETS movie_to_bag
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 install(TARGETS ${PROJECT_NAME}_nodelet movie_reader movie_reader_metadata_plugins
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -73,15 +89,13 @@ install(DIRECTORY include/${PROJECT_NAME}/
 )
 
 install(PROGRAMS
-  scripts/add_movie_to_bag
-  scripts/movie_to_bag
+  nodes/add_movie_to_bag
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 catkin_install_python(PROGRAMS
-  nodes/${PROJECT_NAME}_node
-  scripts/fix_bag_timestamps
-  scripts/merge.py
+  nodes/fix_bag_timestamps
+  nodes/merge.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(FILES
@@ -96,23 +110,36 @@ install(DIRECTORY launch/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 if (CATKIN_ENABLE_TESTING)
   find_package(roslint REQUIRED)
   find_package(rostest REQUIRED)
+  find_package(roslaunch REQUIRED)
 
   roslint_custom(catkin_lint "-W2" .)
 
   # Roslint C++ - checks formatting and some other rules for C++ files
-
-  file(GLOB_RECURSE ROSLINT_INCLUDE include/*.h include/*.hpp)
-  file(GLOB_RECURSE ROSLINT_SRC src/*.cpp src/*.hpp src/*.h)
-  file(GLOB_RECURSE ROSLINT_TEST test/*.cpp)
-
+  file(GLOB_RECURSE ROSLINT_FILES include/*.h src/*.cpp nodes/*.cpp nodelets/*.cpp test/*.cpp)
   set(ROSLINT_CPP_OPTS "--extensions=h,hpp,hh,c,cpp,cc;--linelength=120;--filter=\
     -build/header_guard,-build/include,-readability/namespace,-whitespace/braces,-runtime/references,\
     -build/c++11,-readability/nolint,-readability/todo,-legal/copyright")
-  roslint_cpp(${ROSLINT_INCLUDE} ${ROSLINT_SRC} ${ROSLINT_TEST})
+  roslint_cpp(${ROSLINT_FILES})
 
   roslint_add_test()
 
-  # catkin_add_gtest(${PROJECT_NAME}-test test/test_camera_info_manager_lib.cpp)
-  # target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+  roslaunch_add_file_check(launch/${PROJECT_NAME}.launch IGNORE_UNSET_ARGS)
 
+  catkin_add_gtest(test_movie_reader test/test_movie_reader.cpp)
+  target_link_libraries(test_movie_reader movie_reader movie_reader_metadata_plugins)
+  target_compile_definitions(test_movie_reader PRIVATE TEST_DATA_DIR="${CATKIN_DEVEL_PREFIX}/share/test_data")
+  add_custom_command(TARGET test_movie_reader POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../test_data" "${CATKIN_DEVEL_PREFIX}/share/test_data")
+
+  add_rostest_gtest(test_${PROJECT_NAME}_nodelet test/test_${PROJECT_NAME}_nodelet.test test/test_${PROJECT_NAME}_nodelet.cpp)
+  target_link_libraries(test_${PROJECT_NAME}_nodelet ${catkin_LIBRARIES} ${PROJECT_NAME}_nodelet)
+  add_dependencies(test_${PROJECT_NAME}_nodelet test_movie_reader)  # Wait for copying files
+  target_compile_definitions(test_${PROJECT_NAME}_nodelet PRIVATE TEST_DATA_DIR="${CATKIN_DEVEL_PREFIX}/share/test_data")
+  roslaunch_add_file_check(test/test_${PROJECT_NAME}_nodelet.test USE_TEST_DEPENDENCIES)
+  if(CMAKE_VERSION VERSION_LESS "3.13.0")
+    set_property(TARGET test_${PROJECT_NAME}_nodelet APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--no-as-needed")
+  else()
+    #catkin_lint: ignore_once cmake_old
+    target_link_options(test_${PROJECT_NAME}_nodelet PUBLIC "LINKER:--no-as-needed")
+  endif()
 endif()

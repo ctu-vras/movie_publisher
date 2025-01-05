@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Common base for all metadata extractors that utilize EXIF data.
  * \author Martin Pecka
  */
 
@@ -14,12 +14,17 @@
 #include <compass_conversions/compass_converter.h>
 #include <cras_cpp_common/type_utils.hpp>
 #include <movie_publisher/metadata/ExifBaseMetadataExtractor.h>
-#include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 namespace movie_publisher
 {
-
+/**
+ * \brief Convert a triple of hours, minutes and seconds into fractional number of seconds.
+ * \param[in] hours Hours.
+ * \param[in] minutes Minutes.
+ * \param[in] seconds Seconds.
+ * \return The fractional num of seconds.
+ */
 inline cras::optional<ExifData<ExifSRational>> hmsToSeconds(
   const cras::optional<ExifData<ExifRational>>& hours,
   const cras::optional<ExifData<ExifRational>>& minutes,
@@ -35,6 +40,13 @@ inline cras::optional<ExifData<ExifSRational>> hmsToSeconds(
   return ExifData<ExifSRational>{hours->key, h * 3600 + m * 60 + s};
 }
 
+/**
+ * \brief Convert a triple of degrees, arvc minutes and arc seconds into fractional number of arc seconds.
+ * \param[in] degrees Degrees.
+ * \param[in] minutes Minutes.
+ * \param[in] seconds Seconds.
+ * \return The fractional num of seconds.
+ */
 inline cras::optional<ExifData<ExifSRational>> dmsToSeconds(
   const cras::optional<ExifData<ExifRational>>& degrees,
   const cras::optional<ExifData<ExifRational>>& minutes,
@@ -43,6 +55,13 @@ inline cras::optional<ExifData<ExifSRational>> dmsToSeconds(
   return hmsToSeconds(degrees, minutes, seconds);
 }
 
+/**
+ * \brief Convert a triple of hours, minutes and seconds into fractional number of hours.
+ * \param[in] hours Hours.
+ * \param[in] minutes Minutes.
+ * \param[in] seconds Seconds.
+ * \return The fractional num of hours.
+ */
 inline cras::optional<ExifData<ExifSRational>> hmsToHours(
   const cras::optional<ExifData<ExifRational>>& hours,
   const cras::optional<ExifData<ExifRational>>& minutes,
@@ -54,6 +73,13 @@ inline cras::optional<ExifData<ExifSRational>> hmsToHours(
   return ExifData<ExifSRational>{s->key, s->value / 3600.0};
 }
 
+/**
+ * \brief Convert a triple of degrees, arc minutes and arc seconds into fractional number of degrees.
+ * \param[in] degrees Degrees.
+ * \param[in] minutes Minutes.
+ * \param[in] seconds Seconds.
+ * \return The fractional num of degrees.
+ */
 inline cras::optional<ExifData<ExifSRational>> dmsToDegrees(
   const cras::optional<ExifData<ExifRational>>& degrees,
   const cras::optional<ExifData<ExifRational>>& minutes,
@@ -64,8 +90,8 @@ inline cras::optional<ExifData<ExifSRational>> dmsToDegrees(
 
 struct ExifBaseMetadataExtractorPrivate
 {
-  std::unique_ptr<compass_conversions::CompassConverter> compassConverter;
-  std::weak_ptr<MetadataManager> manager;
+  std::unique_ptr<compass_conversions::CompassConverter> compassConverter;  //!< Compass converter.
+  std::weak_ptr<MetadataManager> manager;  //!< Metadata manager.
 };
 
 ExifBaseMetadataExtractor::ExifBaseMetadataExtractor(
@@ -391,7 +417,7 @@ ExifBaseMetadataExtractor::getGNSSPosition()
 
     gpsMsg.err_horz = gpsHPosError->value;
     gpsMsg.position_covariance[0 * 3 + 0] = gpsMsg.position_covariance[1 * 3 + 1] = std::pow(gpsHPosError->value, 2);
-    gpsMsg.position_covariance[2 * 3 + 2] = 100 * 100;
+    gpsMsg.position_covariance[2 * 3 + 2] = 10000 * 10000;
 
     navMsg.position_covariance = gpsMsg.position_covariance;
     navMsg.position_covariance_type = sensor_msgs::NavSatFix::COVARIANCE_TYPE_APPROXIMATED;

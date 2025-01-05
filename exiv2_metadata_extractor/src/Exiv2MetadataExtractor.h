@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Metadata extractor using exiv2 backend.
  * \author Martin Pecka
  */
 
@@ -27,9 +27,20 @@ namespace movie_publisher
 
 struct Exiv2MetadataPrivate;
 
+/**
+ * \brief Metadata extractor using exiv2 backend.
+ */
 class Exiv2MetadataExtractor : public ExifBaseMetadataExtractor
 {
 public:
+  /**
+   * \brief Constructor.
+   * \param[in] log Logger.
+   * \param[in] manager Metadata manager.
+   * \param[in] filename Filename of the movie.
+   * \param[in] width Width of the movie [px].
+   * \param[in] height Height of the movie [px].
+   */
   Exiv2MetadataExtractor(
     const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
     const std::string& filename, size_t width, size_t height);
@@ -77,9 +88,12 @@ protected:
   cras::optional<ExifData<ExifSRational>> getExifPitchAngle() override;
 
 private:
-  std::unique_ptr<Exiv2MetadataPrivate> data;
+  std::unique_ptr<Exiv2MetadataPrivate> data;  //!< PIMPL
 };
 
+/**
+ * \brief Plugin for instantiating Exiv2MetadataExtractor.
+ */
 struct Exiv2MetadataExtractorPlugin : MetadataExtractorPlugin
 {
   MetadataExtractor::Ptr getExtractor(const MetadataExtractorParams& params) override;

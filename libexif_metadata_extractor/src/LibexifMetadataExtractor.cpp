@@ -3,7 +3,7 @@
 
 /**
  * \file
- * \brief
+ * \brief Metadata extractor using libexif backend.
  * \author Martin Pecka
  */
 
@@ -113,7 +113,10 @@ inline cras::optional<movie_publisher::ExifData<ExifType>> getExifValue(
 inline cras::optional<movie_publisher::ExifData<movie_publisher::ExifAscii>> getExifString(
   ::ExifData* exifData, const ::ExifIfd ifd, const ::ExifTag& key, const std::string& textKey, const long n = 0)  // NOLINT
 {
-  const auto convert = [](const unsigned char* data, ::ExifByteOrder) {return reinterpret_cast<const char*>(data);};
+  const auto convert = [](const unsigned char* data, ::ExifByteOrder)
+  {
+    return cras::strip(reinterpret_cast<const char*>(data));
+  };
   return getExifValue<movie_publisher::ExifAscii>(convert, EXIF_FORMAT_ASCII, exifData, ifd, key, textKey, n);
 }
 
@@ -350,13 +353,13 @@ cras::optional<movie_publisher::ExifData<movie_publisher::ExifAscii>> LibexifMet
   if (result.has_value())
     return result;
 
-  auto& mn = this->data->makerNotes;
+  const auto& mn = this->data->makerNotes;
 
   if (this->getExifMake().value_or(movie_publisher::ExifData<movie_publisher::ExifAscii>{}).value == "Panasonic")
   {
     if (mn.find(PANASONIC_MAKERNOTE_INTERNAL_SERIAL_NUMBER) != mn.end())
       return movie_publisher::ExifData<movie_publisher::ExifAscii>{
-        "MakerNote::LensModel", mn[PANASONIC_MAKERNOTE_LENS_MODEL]};
+        "MakerNote::LensModel", cras::strip(mn.at(PANASONIC_MAKERNOTE_LENS_MODEL))};
   }
 
   return cras::nullopt;
@@ -611,7 +614,7 @@ LibexifMetadataExtractor::getExifAcceleration(const size_t n)
 
   if (this->getExifMake().value_or(movie_publisher::ExifData<movie_publisher::ExifAscii>{}).value == "Panasonic")
   {
-    const auto accScale = 1.0 / 28;  // This is a magic number that seems to fit the samples I saw
+    const auto accScale = 0.034795;  // This is a magic number that seems to fit the samples I saw
     int key;
     std::string keyName;
     double scale;

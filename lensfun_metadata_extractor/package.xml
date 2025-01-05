@@ -10,6 +10,7 @@
   <author email="peckama2@fel.cvut.cz">Martin Pecka</author>
 
   <license file="../LICENSES/BSD-3-Clause.txt">BSD</license>
+  <license file="../LICENSES/CC-BY-SA-3.0.txt">CC-BY-SA 3.0</license> <!-- Test data only -->
 
   <url type="repository">https://github.com/ctu-vras/movie_publisher</url>
   <url type="bugtracker">https://github.com/ctu-vras/movie_publisher/issues</url>
@@ -19,14 +20,18 @@
 
   <build_depend>cras_cpp_common</build_depend>
   <build_depend>cv_bridge</build_depend>
+  <build_depend>image_geometry</build_depend>
   <build_depend>lensfun-dev</build_depend>
   <build_depend>movie_publisher</build_depend>
   <build_depend>pluginlib</build_depend>
+  <build_depend>sensor_msgs</build_depend>
 
   <exec_depend>cras_cpp_common</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>image_geometry</exec_depend>
   <exec_depend>lensfun</exec_depend>
   <exec_depend>movie_publisher</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
 
   <test_depend condition="$ROS_PYTHON_VERSION == 2">python-catkin-lint</test_depend>
   <test_depend condition="$ROS_PYTHON_VERSION == 3">python3-catkin-lint</test_depend>

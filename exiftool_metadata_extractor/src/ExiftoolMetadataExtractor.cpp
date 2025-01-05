@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-FileCopyrightText: Czech Technical University in Prague
 
+/**
+ * \file
+ * \brief Metadata extractor using exiftool backend.
+ * \author Martin Pecka
+ */
+
 #include "ExiftoolMetadataExtractor.h"
 
-#include <exiv2/tags.hpp>
 #include <sys/stat.h>
 
 #include "ExifTool.h"
@@ -16,6 +21,11 @@
 
 namespace movie_publisher
 {
+/**
+ * \brief Get the fully qualified name of an EXIF tag.
+ * \param[in] exif Exif tag.
+ * \return The full name.
+ */
 std::string fullKeyName(const TagInfo* exif)
 {
   std::vector<std::string> keyParts;
@@ -26,6 +36,12 @@ std::string fullKeyName(const TagInfo* exif)
   return cras::join(keyParts, ".");
 }
 
+/**
+ * \brief Search for the given EXIF keys and return the value of the first one that is valid.
+ * \param[in] exifData Exif data of the movie.
+ * \param[in] keys Possible EXIF keys to try.
+ * \return The first valid EXIF data.
+ */
 auto getFirstValid(const std::unordered_map<std::string, TagInfo*>& exifData, const std::list<std::string>& keys)
 {
   for (const auto& key : keys)
@@ -89,6 +105,12 @@ cras::optional<movie_publisher::ExifData<movie_publisher::ExifRational>> getExif
     [](const std::string& s) {return cras::parseDouble(s);}, data, n);
 }
 
+/**
+ * \brief Convert the given decimal seconds to HH:MM:SS and return the requested component.
+ * \param[in] decimal A decimal value.
+ * \param[in] n If 0, return degrees. If 1, return minutes. If 2, return seconds.
+ * \return The requested value.
+ */
 double decimalToDMS(const double decimal, const size_t n)
 {
   const auto degrees = std::floor(decimal);
@@ -101,13 +123,16 @@ double decimalToDMS(const double decimal, const size_t n)
   return seconds;
 }
 
+/**
+ * \brief Private data.
+ */
 struct ExiftoolMetadataPrivate : cras::HasLogger
 {
-  std::string filename;
+  std::string filename;  //!< Filename of the movie.
 
-  std::unique_ptr<ExifTool> exiftool;
-  TagInfo* exifDataList{};
-  cras::optional<std::unordered_map<std::string, TagInfo*>> exifData;
+  std::unique_ptr<ExifTool> exiftool;  //!< Instance of the exiftool API.
+  TagInfo* exifDataList{};  //!< The parsed EXIF data.
+  cras::optional<std::unordered_map<std::string, TagInfo*>> exifData;  //!< The EXIF data.
 
   explicit ExiftoolMetadataPrivate(const cras::LogHelperPtr& log) : cras::HasLogger(log) {}
 

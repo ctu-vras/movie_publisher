@@ -23,7 +23,7 @@
   <build_depend>pluginlib</build_depend>
 
   <exec_depend>cras_cpp_common</exec_depend>
-  <exec_depend>exiv</exec_depend>
+  <exec_depend>libexif</exec_depend>
   <exec_depend>movie_publisher</exec_depend>
 
   <test_depend condition="$ROS_PYTHON_VERSION == 2">python-catkin-lint</test_depend>
