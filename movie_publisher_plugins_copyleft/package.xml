@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<package format="3">
+  <name>movie_publisher_plugins_copyleft</name>
+  <version>1.4.0</version>
+  <description>movie_publisher metadata plugins with copyleft licenses</description>
+
+  <author email="peckama2@fel.cvut.cz">Martin Pecka</author>
+  <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>
+
+  <license file="LICENSE">BSD</license>
+
+  <url type="repository">https://github.com/ctu-vras/movie_publisher</url>
+  <url type="bugtracker">https://github.com/ctu-vras/movie_publisher/issues</url>
+  <url type="website">https://wiki.ros.org/movie_publisher</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>exiv2_metadata_extractor</exec_depend>
+
+  <export>
+    <metapackage />
+  </export>
+</package>
