@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
+image_width: 4592
+image_height: 3448
+camera_name: Panasonic_DMC_GX80_LUMIX_G_VARIO_12_32_F3_5_5_6_XGR1606080157_06FX2042462B_
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [907.5058667024193, 0, 1023.674064941674, 0, 910.4449275805216, 818.9322168491329, 0, 0, 1]
+distortion_model: rational_polynomial
+distortion_coefficients:
+  rows: 1
+  cols: 8
+  data: [0.0168137, -0.00191267, 0.0, 0.0, 0.0408514, 0.00559995, -0.000484464, 0.0399399]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [521.3358764648438, 0, 1026.724493594556, 0, 0, 650.6087036132812, 862.4682443669153, 0, 0, 0, 1, 0]

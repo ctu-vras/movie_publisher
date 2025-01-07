@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
+# This config uses industrial_ci (https://github.com/ros-industrial/industrial_ci.git).
+# For troubleshooting, see readme (https://github.com/ros-industrial/industrial_ci/blob/master/README.rst)
+
+name: CI
+
+# This determines when this workflow is run
+on:
+  push:
+    branches: "melodic-devel"
+  pull_request:
+    branches: "*"
+
+jobs:
+  license_lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: REUSE Compliance Check
+        uses: fsfe/reuse-action@v5
+  industrial_ci:
+    strategy:
+      matrix:
+        env:
+          - ROS_DISTRO: melodic
+            DOCKER_IMAGE: "ros:melodic-perception-bionic"
+            UPSTREAM_WORKSPACE: .github/ci.melodic.rosinstall
+            AFTER_SETUP_UPSTREAM_WORKSPACE: "echo 'yaml https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/base.yaml' > /etc/ros/rosdep/sources.list.d/21-master.list && rosdep update --include-eol-distros --rosdistro melodic"
+          - ROS_DISTRO: noetic
+            ROS_REPO: testing
+            DOCKER_IMAGE: "ros:noetic-perception-focal"
+            UPSTREAM_WORKSPACE: .github/ci.noetic.rosinstall
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache # Directory for ccache (and how we enable ccache in industrial_ci)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # This step will fetch/store the directory used by ccache before/after the ci run
+      - name: Cache ccache
+        uses: rhaschke/cache@main
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ matrix.env.ROS_DISTRO }}-${{ matrix.env.ROS_REPO }}-${{ github.sha }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-${{ matrix.env.ROS_DISTRO }}-${{ matrix.env.ROS_REPO }}-${{ github.sha }}
+            ccache-${{ matrix.env.ROS_DISTRO }}
+        env:
+          GHA_CACHE_SAVE: always
+      # Run industrial_ci
+      - uses: 'ros-industrial/industrial_ci@master'
+        env: ${{ matrix.env }}

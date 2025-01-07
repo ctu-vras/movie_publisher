@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<launch>
+    <arg name="movie_file" doc="Path to the movie to play. Any format that ffmpeg can decode." />
+
+    <arg name="fps" default="" doc="If set, the playback will be at the specified FPS (speeding up/slowing down the movie)." />
+    <arg name="loop" default="" doc="Whether to loop the movie until the node is shut down. Excludes 'immediate'." />
+    <arg name="start" default="" doc="If set, playback will start from the specified time." />
+    <arg name="end" default="" doc="If set, playback will stop at the specified time (not affected by start)." />
+    <arg name="duration" default="" doc="If set, playback will have this duration." />
+    <arg name="frame_id" default="" doc="The frame_id used in the geometrical messages' headers." />
+    <arg name="optical_frame_id" default="" doc="The frame_id used in the image messages' headers." />
+    <arg name="immediate" default="false" doc="If True, the movie will be processed and published as quickly as possible not waiting for the real time. Excludes 'loop'." />
+    <arg name="playback_rate" default="" doc="If set to a number, immediate mode will not play as fast as possible, but at this rate." />
+    <arg name="fake_time_start" default="" doc="Used with 'immediate' to specify the timestamp of the first message." />
+    <arg name="timestamp_offset" default="" doc="Adjustment of timestamps determined by 'timestamp_source'." />
+    <arg name="timestamp_source" default="" doc="How to determine timestamps of the movie frames. metadata|all_zeros|absolute_timecode|relative_timecode|ros_time" />
+    <arg name="spin_after_end" default="false" doc="If True, a rospy.spin() is called after the movie has been published." />
+    <arg name="verbose" default="false" doc="If True, logs info about every frame played." />
+    <arg name="wait_after_publisher_created" default="" doc="A workaround for the case where you need to give your subscribers some time after the publisher was created." />
+    <arg name="publisher_queue_size" default="10" unless="$(arg immediate)" doc="'queue_size' of the movie publisher." />
+    <arg name="publisher_queue_size" default="1000" if="$(arg immediate)" doc="'queue_size' of the movie publisher." />
+    <arg name="required" default="true" doc="Whether the launch file should be exited when playback stops." />
+
+    <node name="$(anon movie_publisher)" pkg="movie_publisher" type="movie_publisher_node" required="$(arg required)">
+        <param name="movie_file" value="$(arg movie_file)" />
+        <param name="fps" value="$(arg fps)" if="$(eval fps != '')" />
+        <param name="loop" value="$(arg loop)" if="$(eval loop != '')" />
+        <param name="start" value="$(arg start)" if="$(eval start != '')" />
+        <param name="end" value="$(arg end)" if="$(eval end != '')" />
+        <param name="duration" value="$(arg duration)" if="$(eval duration != '')" />
+        <param name="frame_id" value="$(arg frame_id)" if="$(eval frame_id != '')" />
+        <param name="optical_frame_id" value="$(arg optical_frame_id)" if="$(eval optical_frame_id != '')" />
+        <param name="immediate" value="$(arg immediate)" if="$(eval immediate != '')" />
+        <param name="playback_rate" value="$(arg playback_rate)" if="$(eval playback_rate != '')" />
+        <param name="fake_time_start" value="$(arg fake_time_start)" if="$(eval fake_time_start != '')" />
+        <param name="spin_after_end" value="$(arg spin_after_end)" if="$(eval spin_after_end != '')" />
+        <param name="verbose" value="$(arg verbose)" if="$(eval verbose != '')" />
+        <param name="wait_after_publisher_created" value="$(arg wait_after_publisher_created)" if="$(eval wait_after_publisher_created != '')" />
+        <param name="publisher_queue_size" value="$(arg publisher_queue_size)" if="$(eval publisher_queue_size != '')" />
+    </node>
+</launch>

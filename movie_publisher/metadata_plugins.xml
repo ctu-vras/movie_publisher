@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<library path="lib/libmovie_reader_metadata_plugins">
+  <class name="movie_publisher/file_metadata_extractor" type="movie_publisher::FileMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Metadata extractor utilizing filesystem metadata about the file.
+    </description>
+  </class>
+  <class name="movie_publisher/filename_metadata_extractor" type="movie_publisher::FilenameMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Metadata extractor utilizing the filename.
+    </description>
+  </class>
+  <class name="movie_publisher/libav_stream_metadata_extractor" type="movie_publisher::LibavStreamMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Metadata extractor utilizing an already open libav stream.
+    </description>
+  </class>
+</library>

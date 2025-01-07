@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<library path="lib/liblensfun_metadata_extractor">
+  <class name="movie_publisher/lensfun_metadata_extractor" type="movie_publisher::LensfunMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Metadata extractor utilizing the lensfun library.
+    </description>
+  </class>
+</library>
