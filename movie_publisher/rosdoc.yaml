@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
 - builder: doxygen
   required: True
   file_patterns: '*.h *.hpp *.hh *.dox nodelets/*.cpp nodes/movie_to_bag.cpp'
