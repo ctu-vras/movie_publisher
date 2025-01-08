@@ -5,6 +5,30 @@
  * \file
  * \brief Convert movie files and their metadata to ROS bag file.
  * \author Martin Pecka
+ */
+
+#pragma once
+
+#include <memory>
+#include <string>
+
+#include <compass_msgs/Azimuth.h>
+#include <cras_cpp_common/expected.hpp>
+#include <cras_cpp_common/node_utils/node_with_optional_master.h>
+#include <cras_cpp_common/param_utils.hpp>
+#include <geometry_msgs/TransformStamped.h>
+#include <gps_common/GPSFix.h>
+#include <image_transport_codecs/image_transport_codecs.h>
+#include <movie_publisher/movie_processor_base.h>
+#include <rosbag/bag.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/NavSatFix.h>
+
+namespace movie_publisher
+{
+/**
+ * \brief Convert movie files and their metadata to ROS bag file.
  *
  * \par Stored topics
  *
@@ -25,12 +49,8 @@
  * Parameters `~start`, `~end` and `~duration` can be expressed in seconds `(15.35)`, in `(min, sec)`,
  * in `(hour, min, sec)`, or as a string: `'01:03:05.35'`.
  *
- * - `~bag` (string, required): Path where the result should be stored.
  * - `~overwrite_bag` (bool, default false): If true and the bag file exists, it will be overwritten. Otherwise, it will
  *                                           be appended (and created if needed).
- * - `~movie` (string, required): Path to the movie to play. Any format that ffmpeg can decode.
- * - `~transport` (string, default `raw`, suggested `compressed`): The image_transport used to store the movie
- *                                                                 in the bag.
  * - `~start` (float|tuple|string, optional): If set, the movie will be read from the specified time.
  *                                            Cannot be set together with `~end` and `~duration`.
  * - `~end` (float|tuple|string, optional): If set, the movie will be read up to the specified time (not affected by
@@ -66,42 +86,71 @@
  * - `~encoding` (string, optional): Set the encoding which should be used for output frames regardless of their source
  *                                   encoding (one of sensor_msgs::image_encodings constants).
  */
-
-#include <memory>
-#include <string>
-
-#include <cras_cpp_common/node_utils.hpp>
-#include <cras_cpp_common/node_utils/node_with_optional_master.h>
-#include <movie_publisher/movie_to_bag.h>
-
-
-int main(int argc, char* argv[])
+class MovieToBag : public cras::NodeWithOptionalMaster, protected MovieProcessorBase
 {
-  const auto log = std::make_shared<cras::NodeLogHelper>();
-  movie_publisher::MovieToBag node(log);
+public:
+  /**
+   * \param[in] log Logger.
+   */
+  explicit MovieToBag(const cras::LogHelperPtr& log);
 
-  // We're using NodeWithOptionalMaster, so this is instead of ros::init().
-  const auto options = ros::init_options::AnonymousName;
-  node.init(argc, argv, "movie_to_bag", options);
+  /**
+   * \brief Open the given movie file for reading and bag file for writing.
+   * \param[in] bagFilename The bag filename.
+   * \param[in] transport The image transport to use for saving movie frames.
+   * \param[in] movieFilename The movie file.
+   * \param[in] params ROS parameters.
+   * \return Nothing or error.
+   *
+   * Processed ROS parameters:
+   * - `verbose` (bool, default false): Whether to print progress messages.
+   * - `topic` (string, default 'movie'): Base name of the topic with movie frames (without transport suffix).
+   */
+  virtual cras::expected<void, std::string> open(
+    const std::string& bagFilename, const std::string& transport, const std::string& movieFilename,
+    const cras::BoundParamHelperPtr& params);
 
-  const auto params = node.getPrivateParams();
-  const auto bagFilename = params->getParam<std::string>("bag", cras::nullopt);
-  const auto movieFilename = params->getParam<std::string>("movie", cras::nullopt);
-  const auto transport = params->getParam<std::string>("transport", "raw");
+  /**
+   * \brief Run the conversion.
+   * \return Nothing or error.
+   */
+  virtual cras::expected<void, std::string> run();
 
-  const auto openResult = node.open(bagFilename, transport, movieFilename, params);
-  if (!openResult.has_value())
-  {
-    CRAS_ERROR("%s", openResult.error().c_str());
-    return 1;
-  }
+protected:
+  cras::LogHelperConstPtr getCrasLogger() const;
 
-  const auto runResult = node.run();
-  if (!runResult.has_value())
-  {
-    CRAS_ERROR("%s", runResult.error().c_str());
-    return 2;
-  }
+  std::unique_ptr<MovieReaderRos> createReader(const cras::BoundParamHelperPtr& params) override;
 
-  return 0;
+  virtual std::string getImageTopic() const;
+  virtual std::string getCameraInfoTopic() const;
+  virtual std::string getAzimuthTopic() const;
+  virtual std::string getNavSatFixTopic() const;
+  virtual std::string getGpsTopic() const;
+  virtual std::string getImuTopic() const;
+  virtual std::string getTfTopic() const;
+  virtual std::string getStaticTfTopic() const;
+
+  /**
+   * \brief Prefix the given topic name with the base topic.
+   * \param[in] topicName Suffix to add to the base topic name.
+   * \return The prefixed topic name.
+   */
+  virtual std::string getPrefixedTopic(const std::string& topicName) const;
+
+  cras::expected<void, std::string> processImage(
+    const sensor_msgs::ImageConstPtr& image, const cras::optional<sensor_msgs::CameraInfo>& cameraInfoMsg) override;
+  void processAzimuth(const compass_msgs::Azimuth& azimuthMsg) override;
+  void processNavSatFix(const sensor_msgs::NavSatFix& navSatFixMsg) override;
+  void processGps(const gps_common::GPSFix& gpsMsg) override;
+  void processImu(const sensor_msgs::Imu& imuMsg) override;
+  void processZeroRollPitchTf(const geometry_msgs::TransformStamped& zeroRollPitchTfMsg) override;
+  void processOpticalTf(const geometry_msgs::TransformStamped& opticalTfMsg) override;
+
+  std::unique_ptr<image_transport_codecs::ImageTransportCodecs> imageCodecs;  //!< Image transport codec instance.
+  std::unique_ptr<rosbag::Bag> bag;  //!< The bag to write to.
+
+  std::string topic;  //!< The base topic name.
+  std::string transport;  //!< The transport to use.
+};
+
 }

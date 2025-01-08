@@ -51,6 +51,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 add_library(movie_reader
   src/metadata/ExifBaseMetadataExtractor.cpp
   src/metadata_manager.cpp
+  src/movie_processor_base.cpp
   src/movie_reader.cpp
   src/movie_reader_private.cpp
   src/movie_reader_ros.cpp
@@ -65,18 +66,22 @@ add_library(movie_reader_metadata_plugins
 )
 target_link_libraries(movie_reader_metadata_plugins PUBLIC ${catkin_LIBRARIES} movie_reader PRIVATE ffmpeg std::filesystem)
 
-add_executable(movie_to_bag nodes/movie_to_bag.cpp)
+add_library(movie_to_bag src/movie_to_bag.cpp)
 target_link_libraries(movie_to_bag PUBLIC movie_reader ${catkin_LIBRARIES} PRIVATE std::filesystem)
+
+add_executable(movie_to_bag_node nodes/movie_to_bag.cpp)
+target_link_libraries(movie_to_bag_node movie_to_bag ${catkin_LIBRARIES})
+set_target_properties(movie_to_bag_node PROPERTIES OUTPUT_NAME movie_to_bag PREFIX "")
 
 add_library(${PROJECT_NAME}_nodelet nodelets/${PROJECT_NAME}_nodelet.cpp)
 target_link_libraries(${PROJECT_NAME}_nodelet PUBLIC movie_reader ${catkin_LIBRARIES})
 cras_node_from_nodelet(${PROJECT_NAME}_nodelet ${PROJECT_NAME}::MoviePublisherNodelet OUTPUT_NAME ${PROJECT_NAME} ANONYMOUS)
 
-install(TARGETS movie_to_bag
+install(TARGETS movie_to_bag_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(TARGETS ${PROJECT_NAME}_nodelet movie_reader movie_reader_metadata_plugins
+install(TARGETS ${PROJECT_NAME}_nodelet movie_reader movie_reader_metadata_plugins movie_to_bag
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
