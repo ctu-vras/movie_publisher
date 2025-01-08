@@ -14,13 +14,21 @@
 #include <regex>
 #include <unordered_map>
 
+#include <compass_msgs/Azimuth.h>
 #include <cras_cpp_common/expected.hpp>
 #include <cras_cpp_common/optional.hpp>
 #include <cras_cpp_common/param_utils/bound_param_helper.hpp>
+#include <geometry_msgs/TransformStamped.h>
+#include <gps_common/GPSFix.h>
 #include <movie_publisher/metadata_extractor.h>
+#include <movie_publisher/metadata_manager.h>
 #include <movie_publisher/movie_reader.h>
 #include <ros/duration.h>
+#include <ros/time.h>
 #include <sensor_msgs/image_encodings.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>

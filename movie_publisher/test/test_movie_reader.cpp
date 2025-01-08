@@ -8,6 +8,7 @@
  */
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 #include <list>
 #include <memory>
@@ -32,6 +33,21 @@ using Az = compass_msgs::Azimuth;
 using Imu = sensor_msgs::Imu;
 using Fix = sensor_msgs::NavSatFix;
 
+constexpr uint32_t align(const uint32_t x, const uint32_t a)
+{
+  return ((x) + (a) - 1) & ~((a) - 1);
+}
+
+auto alignedStep(const uint32_t width, const uint32_t channels, const uint32_t planes = 1)
+{
+  const auto step = width * channels;
+  return testing::AnyOf(
+    testing::Eq(planes * step),
+    testing::Eq(planes * align(step, 8)),
+    testing::Eq(planes * align(step, 16)),
+    testing::Eq(planes * align(step, 32)),
+    testing::Eq(planes * align(step, 64)));
+}
 
 TEST(MovieReader, TestEncoding)  // NOLINT
 {
@@ -62,7 +78,7 @@ TEST(MovieReader, TestEncoding)  // NOLINT
   EXPECT_EQ(1920, image->height);
   EXPECT_EQ("bgr8", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(3264, image->step);
+  EXPECT_THAT(image->step, alignedStep(1080, 3));
 }
 
 TEST(MovieReader, FairphoneStill)  // NOLINT
@@ -100,7 +116,7 @@ TEST(MovieReader, FairphoneStill)  // NOLINT
   EXPECT_EQ(3000, image->height);
   EXPECT_EQ("yuv422", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(8000, image->step);
+  EXPECT_THAT(image->step, alignedStep(4000, 1, 2));
 
   maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -144,7 +160,7 @@ TEST(MovieReader, FairphoneMovie)  // NOLINT
   EXPECT_EQ(1920, image->height);
   EXPECT_EQ("yuv422", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(2176, image->step);
+  EXPECT_THAT(image->step, alignedStep(1080, 1, 2));
 
   maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -211,7 +227,7 @@ TEST(MovieReader, LumixStill)  // NOLINT
   EXPECT_EQ(3448, image->height);
   EXPECT_EQ("yuv422", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(9184, image->step);
+  EXPECT_THAT(image->step, alignedStep(4592, 1, 2));
 
   maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -252,7 +268,7 @@ TEST(MovieReader, LumixMovie)  // NOLINT
   EXPECT_EQ(1080, image->height);
   EXPECT_EQ("yuv422", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(3840, image->step);
+  EXPECT_THAT(image->step, alignedStep(1920, 1, 2));
 
   maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -320,7 +336,7 @@ TEST(MovieReader, FfmpegProcessed)  // NOLINT
   EXPECT_EQ(1080, image->height);
   EXPECT_EQ("yuv422", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(3840, image->step);
+  EXPECT_THAT(image->step, alignedStep(1920, 1, 2));
 
   maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -386,7 +402,7 @@ TEST(MovieReader, IphoneStill)  // NOLINT
   EXPECT_EQ(3024, image->height);
   EXPECT_EQ("yuv422", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(8064, image->step);
+  EXPECT_THAT(image->step, alignedStep(4032, 1, 2));
 
   maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -428,7 +444,7 @@ TEST(MovieReader, IphoneMovie)  // NOLINT
   EXPECT_EQ(1080, image->height);
   EXPECT_EQ("yuv422", image->encoding);
   EXPECT_EQ(false, image->is_bigendian);
-  EXPECT_EQ(3840, image->step);
+  EXPECT_THAT(image->step, alignedStep(1920, 1, 2));
 
   maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());

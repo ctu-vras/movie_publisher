@@ -5,8 +5,3 @@
     local-name: ros-utils
     uri: https://github.com/ctu-vras/ros-utils.git
     version: master
-# Fix https://github.com/ros/roslint/pull/90
-- git:
-    local-name: roslint
-    uri: https://github.com/peci1/roslint.git
-    version: patch-2

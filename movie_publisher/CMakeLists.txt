@@ -128,13 +128,13 @@ if (CATKIN_ENABLE_TESTING)
 
   roslaunch_add_file_check(launch/${PROJECT_NAME}.launch IGNORE_UNSET_ARGS)
 
-  catkin_add_gtest(test_movie_reader test/test_movie_reader.cpp)
+  catkin_add_gmock(test_movie_reader test/test_movie_reader.cpp)
   target_link_libraries(test_movie_reader movie_reader movie_reader_metadata_plugins)
   target_compile_definitions(test_movie_reader PRIVATE TEST_DATA_DIR="${CATKIN_DEVEL_PREFIX}/share/test_data")
   add_custom_command(TARGET test_movie_reader POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../test_data" "${CATKIN_DEVEL_PREFIX}/share/test_data")
 
-  add_rostest_gtest(test_${PROJECT_NAME}_nodelet test/test_${PROJECT_NAME}_nodelet.test test/test_${PROJECT_NAME}_nodelet.cpp)
+  add_rostest_gmock(test_${PROJECT_NAME}_nodelet test/test_${PROJECT_NAME}_nodelet.test test/test_${PROJECT_NAME}_nodelet.cpp)
   target_link_libraries(test_${PROJECT_NAME}_nodelet ${catkin_LIBRARIES} ${PROJECT_NAME}_nodelet)
   add_dependencies(test_${PROJECT_NAME}_nodelet test_movie_reader)  # Wait for copying files
   target_compile_definitions(test_${PROJECT_NAME}_nodelet PRIVATE TEST_DATA_DIR="${CATKIN_DEVEL_PREFIX}/share/test_data")

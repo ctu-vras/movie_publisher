@@ -9,7 +9,6 @@
 
 #include <memory>
 #include <string>
-#include <thread>
 
 #include CXX_FILESYSTEM_INCLUDE
 namespace fs = CXX_FILESYSTEM_NAMESPACE;

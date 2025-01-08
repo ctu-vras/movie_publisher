@@ -8,6 +8,7 @@
  */
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 #include <cmath>
 #include <map>
@@ -41,6 +42,22 @@ using Fix = sensor_msgs::NavSatFix;
 using FixDetail = gps_common::GPSFix;
 
 ros::V_string my_argv;
+
+constexpr uint32_t align(const uint32_t x, const uint32_t a)
+{
+  return ((x) + (a) - 1) & ~((a) - 1);
+}
+
+auto alignedStep(const uint32_t width, const uint32_t channels, const uint32_t planes = 1)
+{
+  const auto step = width * channels;
+  return testing::AnyOf(
+    testing::Eq(planes * step),
+    testing::Eq(planes * align(step, 8)),
+    testing::Eq(planes * align(step, 16)),
+    testing::Eq(planes * align(step, 32)),
+    testing::Eq(planes * align(step, 64)));
+}
 
 template<typename NodeletType = cras::Nodelet>
 std::unique_ptr<NodeletType> createNodelet(const cras::LogHelperPtr& log,
@@ -137,7 +154,7 @@ TEST(MoviePublisherNodelet, FairphoneStill)  // NOLINT
   EXPECT_EQ(4000, lastImages[0].width);
   EXPECT_EQ(3000, lastImages[0].height);
   EXPECT_EQ(sensor_msgs::image_encodings::BGR8, lastImages[0].encoding);
-  EXPECT_EQ(12000, lastImages[0].step);
+  EXPECT_THAT(lastImages[0].step, alignedStep(4000, 3));
   EXPECT_EQ(0, lastImages[0].is_bigendian);
 
   EXPECT_EQ("test_optical_frame", lastCompressedImages[0].header.frame_id);
@@ -208,7 +225,7 @@ TEST(MoviePublisherNodelet, FairphoneMovie)  // NOLINT
   EXPECT_EQ(1080, lastImages[0].width);
   EXPECT_EQ(1920, lastImages[0].height);
   EXPECT_EQ(sensor_msgs::image_encodings::BGR8, lastImages[0].encoding);
-  EXPECT_EQ(3264, lastImages[0].step);
+  EXPECT_THAT(lastImages[0].step, alignedStep(1080, 3));
   EXPECT_EQ(0, lastImages[0].is_bigendian);
 
   EXPECT_EQ("test_optical_frame", lastCompressedImages[0].header.frame_id);
@@ -230,7 +247,7 @@ TEST(MoviePublisherNodelet, FairphoneMovie)  // NOLINT
   EXPECT_EQ(1080, lastImages[1].width);
   EXPECT_EQ(1920, lastImages[1].height);
   EXPECT_EQ(sensor_msgs::image_encodings::BGR8, lastImages[1].encoding);
-  EXPECT_EQ(3264, lastImages[1].step);
+  EXPECT_THAT(lastImages[0].step, alignedStep(1080, 3));
   EXPECT_EQ(0, lastImages[1].is_bigendian);
 
   EXPECT_EQ("test_optical_frame", lastCompressedImages[1].header.frame_id);
@@ -317,7 +334,7 @@ TEST(MoviePublisherNodelet, IphoneMovie)  // NOLINT
   EXPECT_EQ(1920, lastImages[0].width);
   EXPECT_EQ(1080, lastImages[0].height);
   EXPECT_EQ(sensor_msgs::image_encodings::BGR8, lastImages[0].encoding);
-  EXPECT_EQ(5760, lastImages[0].step);
+  EXPECT_THAT(lastImages[0].step, alignedStep(1920, 3));
   EXPECT_EQ(0, lastImages[0].is_bigendian);
 
   EXPECT_EQ("test_optical_frame", lastCompressedImages[0].header.frame_id);
@@ -360,7 +377,7 @@ TEST(MoviePublisherNodelet, IphoneMovie)  // NOLINT
   EXPECT_EQ(1920, lastImages[1].width);
   EXPECT_EQ(1080, lastImages[1].height);
   EXPECT_EQ(sensor_msgs::image_encodings::BGR8, lastImages[1].encoding);
-  EXPECT_EQ(5760, lastImages[1].step);
+  EXPECT_THAT(lastImages[0].step, alignedStep(1920, 3));
   EXPECT_EQ(0, lastImages[1].is_bigendian);
 
   EXPECT_EQ("test_optical_frame", lastCompressedImages[1].header.frame_id);

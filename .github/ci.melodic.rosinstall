@@ -9,8 +9,3 @@
     local-name: compass
     uri: https://github.com/ctu-vras/compass.git
     version: master
-# Fix https://github.com/ros/roslint/pull/90
-- git:
-    local-name: roslint
-    uri: https://github.com/peci1/roslint.git
-    version: patch-2
