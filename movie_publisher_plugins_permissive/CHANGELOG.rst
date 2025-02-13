@@ -5,8 +5,8 @@
 Changelog for package movie_publisher_plugins_permissive
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.0 (2025-02-13)
+------------------
 * Package added.
 * Contributors: Martin Pecka
 

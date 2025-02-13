@@ -5,8 +5,8 @@
 Changelog for package movie_publisher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.0 (2025-02-13)
+------------------
 * Cleaned up dependencies.
 * Refactor out MovieProcessorBase.
 * CI: Add license linting.
