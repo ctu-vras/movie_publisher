@@ -54,7 +54,7 @@ rosrun movie_publisher movie_to_bag _movie:="${movie}" _bag:="${bag_tmp}" _topic
 
 echo "Merging into ${bag_out}"
 
-rosrun movie_publisher merge.py --output "${bag_out}" "${bag_in}" "${bag_tmp}" || exit 6
+rosrun cras_bag_tools merge_bag --compress "${bag_out}" "${bag_in}" "${bag_tmp}" || exit 6
 
 echo "Merged"
 

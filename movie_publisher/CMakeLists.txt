@@ -98,7 +98,6 @@ install(PROGRAMS
 
 catkin_install_python(PROGRAMS
   nodes/fix_bag_timestamps
-  nodes/merge.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(FILES

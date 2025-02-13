@@ -8,7 +8,11 @@ This package contains several tools for using movie files in ROS (playback, conv
 It handles any file formats the system installation of ffmpeg can decode.
 
 **Important: This package used to be implemented in Python using pip-installed libraries. That is no longer needed
-as the package now uses C++ API of ffmpeg/libav.**
+as the package now uses C++ API of ffmpeg/libav.** Some things have changed and work a bit differently, but a big effort
+was spent to keep the new version as backwards compatible as possible.
+
+It can also extract interesting image/video metadata like GPS coordinates and camera calibrations and provide them as
+ROS-native types.
 
 ## Main tools
 
@@ -23,8 +27,6 @@ as the package now uses C++ API of ffmpeg/libav.**
 - `fix_bag_timestamps`: A batch script that rewrites bag files so that the message publication time is taken from the 
 message header. This allows you to generate bagfile data at high speed and then reprocess them to have more suitable
 publication timestamps.
-- `merge.py`: A copy of [srv_tools/merge.py](https://github.com/srv/srv_tools/blob/kinetic/bag_tools/scripts/merge.py) 
-which is not available in indigo.
 
 ## movie_publisher_node and nodelet movie_publisher/movie_publisher_nodelet
 

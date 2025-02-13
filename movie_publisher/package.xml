@@ -33,6 +33,7 @@
   <build_depend>tf2_ros</build_depend>
 
   <exec_depend>compass_conversions</exec_depend>
+  <exec_depend>cras_bag_tools</exec_depend>
   <exec_depend>cras_topic_tools</exec_depend>
   <exec_depend>ffmpeg</exec_depend>
   <exec_depend>image_geometry</exec_depend>
@@ -53,11 +54,6 @@
   <depend>sensor_msgs</depend>
 
   <exec_depend>ffmpeg</exec_depend>
-  <exec_depend condition="$ROS_DISTRO != noetic">python-imageio</exec_depend>
-  <exec_depend condition="$ROS_DISTRO == noetic">python3-imageio</exec_depend>
-  <!--exec_depend>python-moviepy-pip</exec_depend--> <!-- recommended but optional dependency -->
-  <exec_depend condition="$ROS_DISTRO != noetic">python-opencv</exec_depend>
-  <exec_depend condition="$ROS_DISTRO == noetic">python3-opencv</exec_depend>
   <exec_depend version_gte="1.0.2">rosbash_params</exec_depend>
   <exec_depend>rospy</exec_depend>
 
