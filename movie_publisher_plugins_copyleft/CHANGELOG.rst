@@ -7,6 +7,8 @@ Changelog for package movie_publisher_plugins_copyleft
 
 Forthcoming
 -----------
+* Package added.
+* Contributors: Martin Pecka
 
 1.4.0 (2022-06-08)
 ------------------

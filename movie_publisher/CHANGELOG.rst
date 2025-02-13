@@ -7,6 +7,14 @@ Changelog for package movie_publisher
 
 Forthcoming
 -----------
+* Cleaned up dependencies.
+* Refactor out MovieProcessorBase.
+* CI: Add license linting.
+* Compatibility with Melodic.
+* Improved documentation, rewritten movie_to_bag to C++, added tests.
+* Added support for ImgGPSDirection and GPSTrack expressed towards magnetic North.
+* Big rewrite. Moved movie_publisher to a subfolder. Added C++/libav implementation and metadata extraction plugins.
+* Contributors: Martin Pecka
 
 1.4.0 (2022-06-08)
 ------------------

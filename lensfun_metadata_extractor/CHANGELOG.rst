@@ -7,6 +7,8 @@ Changelog for package lensfun_metadata_extractor
 
 Forthcoming
 -----------
+* Package added.
+* Contributors: Martin Pecka
 
 1.4.0 (2022-06-08)
 ------------------

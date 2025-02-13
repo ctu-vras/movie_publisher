@@ -7,6 +7,8 @@ Changelog for package exiv2_metadata_extractor
 
 Forthcoming
 -----------
+* Package added.
+* Contributors: Martin Pecka
 
 1.4.0 (2022-06-08)
 ------------------
