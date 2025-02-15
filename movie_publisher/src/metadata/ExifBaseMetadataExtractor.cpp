@@ -9,7 +9,7 @@
 
 #include <limits>
 
-#include <exiv2/tags.hpp>
+// #include <exiv2/tags.hpp>
 
 #include <compass_conversions/compass_converter.h>
 #include <cras_cpp_common/type_utils.hpp>
