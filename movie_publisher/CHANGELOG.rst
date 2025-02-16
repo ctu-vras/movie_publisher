@@ -5,6 +5,11 @@
 Changelog for package movie_publisher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Try fixing build on buildfarm
+* Contributors: Martin Pecka
+
 2.0.0 (2025-02-13)
 ------------------
 * Cleaned up dependencies.

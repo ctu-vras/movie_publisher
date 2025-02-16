@@ -5,6 +5,9 @@
 Changelog for package movie_publisher_plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 2.0.0 (2025-02-13)
 ------------------
 * Package added.
