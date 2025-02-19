@@ -13,7 +13,6 @@
 #include <string>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <exiv2/exiv2.hpp>
 #include <sys/stat.h>
 
 #include <cras_cpp_common/expected.hpp>
