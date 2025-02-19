@@ -3,7 +3,7 @@
 <!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
 <package format="3">
   <name>exiv2_metadata_extractor</name>
-  <version>2.0.1</version>
+  <version>2.0.2</version>
   <description>Metadata extractor utilizing exiv2 library.</description>
 
   <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>
