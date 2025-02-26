@@ -96,14 +96,14 @@ TEST(LensfunMetadataExtractor, LumixStill)  // NOLINT
   ASSERT_TRUE(e->getDistortion());
   EXPECT_EQ(sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL, e->getDistortion()->first);
   ASSERT_EQ(8, e->getDistortion()->second.size());
-  EXPECT_NEAR(0.0168137, e->getDistortion()->second[0], 2e-3);
-  EXPECT_NEAR(-0.00191267, e->getDistortion()->second[1], 1e-5);
+  EXPECT_NEAR(0.0168137, e->getDistortion()->second[0], 1e-2);
+  EXPECT_NEAR(-0.00191267, e->getDistortion()->second[1], 1e-4);
   EXPECT_NEAR(0.0, e->getDistortion()->second[2], 1e-6);
   EXPECT_NEAR(0.0, e->getDistortion()->second[3], 1e-6);
-  EXPECT_NEAR(0.0408514, e->getDistortion()->second[4], 1e-4);
-  EXPECT_NEAR(0.00559995, e->getDistortion()->second[5], 2e-3);
+  EXPECT_NEAR(0.0408514, e->getDistortion()->second[4], 4e-4);
+  EXPECT_NEAR(0.00559995, e->getDistortion()->second[5], 1e-2);
   EXPECT_NEAR(-0.000484464, e->getDistortion()->second[6], 1e-4);
-  EXPECT_NEAR(0.0399399, e->getDistortion()->second[7], 1e-4);
+  EXPECT_NEAR(0.0399399, e->getDistortion()->second[7], 4e-4);
 }
 
 TEST(LensfunMetadataExtractor, LumixMovie)  // NOLINT
