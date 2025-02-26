@@ -32,9 +32,10 @@ jobs:
             ROS_REPO: testing
             DOCKER_IMAGE: "ros:noetic-perception-focal"
             UPSTREAM_WORKSPACE: .github/ci.noetic.rosinstall
+        os: ["ubuntu-latest", "ubuntu-24.04-arm"]
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache # Directory for ccache (and how we enable ccache in industrial_ci)
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       # This step will fetch/store the directory used by ccache before/after the ci run
