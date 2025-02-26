@@ -32,7 +32,8 @@ jobs:
             ROS_REPO: testing
             DOCKER_IMAGE: "ros:noetic-perception-focal"
             UPSTREAM_WORKSPACE: .github/ci.noetic.rosinstall
-        os: ["ubuntu-latest", "ubuntu-24.04-arm"]
+        os: ["ubuntu-24.04", "ubuntu-24.04-arm"]
+    name: "${{ matrix.env.ROS_DISTRO }}-${{ matrix.os }}"
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache # Directory for ccache (and how we enable ccache in industrial_ci)
     runs-on: ${{ matrix.os }}
