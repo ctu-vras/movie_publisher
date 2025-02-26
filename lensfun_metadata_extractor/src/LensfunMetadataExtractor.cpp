@@ -99,7 +99,8 @@ struct LensfunMetadataPrivate : public cras::HasLogger
     maxStamp = std::max(maxStamp, lfDatabaseReadTimestamp(homeDir));
     maxStamp = std::max(maxStamp, lfDatabaseReadTimestamp(updatesDir));
 
-    if (maxStamp == -1 || std::abs(maxStamp - ros::WallTime::now().sec) > 60 * 60 * 24 * 30)
+    // The static cast is needed for 32-bit builds
+    if (maxStamp == -1 || std::abs(static_cast<int64_t>(maxStamp - ros::WallTime::now().sec)) > 60 * 60 * 24 * 30)
       CRAS_WARN_ONCE_NAMED("lensfun", "Lensfun database is old. Consider calling lensfun-update-data.");
   }
 
