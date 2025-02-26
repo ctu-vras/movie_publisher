@@ -5,6 +5,12 @@
 Changelog for package lensfun_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fixed build on armhf.
+* Fixed test on bionic/arm64.
+* Contributors: Martin Pecka
+
 2.0.2 (2025-02-19)
 ------------------
 

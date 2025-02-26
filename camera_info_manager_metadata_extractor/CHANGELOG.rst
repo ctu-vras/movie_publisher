@@ -5,6 +5,9 @@
 Changelog for package camera_info_manager_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 2.0.2 (2025-02-19)
 ------------------
 

@@ -5,6 +5,9 @@
 Changelog for package libexif_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 2.0.2 (2025-02-19)
 ------------------
 
