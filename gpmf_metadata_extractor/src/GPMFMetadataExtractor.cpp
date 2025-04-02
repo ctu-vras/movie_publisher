@@ -181,6 +181,21 @@ cras::optional<geometry_msgs::Vector3> GPMFMetadataExtractor::getAcceleration()
   return cras::nullopt;
 }
 
+cras::optional<sensor_msgs::MagneticField> GPMFMetadataExtractor::getMagneticField()
+{
+  return cras::nullopt;
+}
+
+cras::optional<geometry_msgs::Vector3> GPMFMetadataExtractor::getAngularVelocity()
+{
+  return cras::nullopt;
+}
+
+cras::optional<vision_msgs::Detection2DArray> GPMFMetadataExtractor::getFaces()
+{
+  return cras::nullopt;
+}
+
 MetadataExtractor::Ptr GPMFMetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
   if (params.log == nullptr || params.manager.lock() == nullptr || params.width == 0 || params.height == 0)

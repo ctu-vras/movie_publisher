@@ -67,6 +67,9 @@ public:
   cras::optional<compass_msgs::Azimuth> getAzimuth() override;
   cras::optional<std::pair<double, double>> getRollPitch() override;
   cras::optional<geometry_msgs::Vector3> getAcceleration() override;
+  cras::optional<sensor_msgs::MagneticField> getMagneticField() override;
+  cras::optional<geometry_msgs::Vector3> getAngularVelocity() override;
+  cras::optional<vision_msgs::Detection2DArray> getFaces() override;
 
 private:
   std::unique_ptr<GPMFMetadataPrivate> data;  //!< PIMPL
