@@ -24,8 +24,10 @@
 #include <ros/time.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/image_encodings.h>
+#include <vision_msgs/Detection2DArray.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -111,9 +113,11 @@ struct MovieReaderPrivate : public cras::HasLogger
   cras::optional<sensor_msgs::NavSatFix> navSatFixMsg;  //!< Extracted NavSatFix message.
   cras::optional<gps_common::GPSFix> gpsMsg;  //!< Extracted GPSFix message.
   cras::optional<compass_msgs::Azimuth> azimuthMsg;  //!< Extracted Azimuth message.
+  cras::optional<sensor_msgs::MagneticField> magneticFieldMsg;  //!< Extracted MagneticField message.
   cras::optional<sensor_msgs::Imu> imuMsg;  //!< Extracted Imu message.
   cras::optional<geometry_msgs::TransformStamped> opticalTfMsg;  //!< Extracted optical->geometrical TF.
   cras::optional<geometry_msgs::TransformStamped> zeroRollPitchTfMsg;  //!< Extracted TF to cancel-out roll and pitch.
+  cras::optional<vision_msgs::Detection2DArray> facesMsg;  //!< Extracted face detections.
 
   // Libav stuff
   AVPixelFormat targetPixelFormat;  //!< The desired output pixel format.

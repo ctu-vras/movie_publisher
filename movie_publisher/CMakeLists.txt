@@ -23,12 +23,13 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
   tf2_msgs
   tf2_ros
+  vision_msgs
 )
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES movie_reader
-  CATKIN_DEPENDS compass_msgs cras_cpp_common gps_common roscpp sensor_msgs
+  CATKIN_DEPENDS compass_msgs cras_cpp_common gps_common roscpp sensor_msgs vision_msgs
 )
 
 find_package(PkgConfig REQUIRED)

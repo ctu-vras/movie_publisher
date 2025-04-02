@@ -184,6 +184,11 @@ const cras::optional<compass_msgs::Azimuth>& MovieReader::getAzimuthMsg() const
   return this->data->azimuthMsg;
 }
 
+const cras::optional<sensor_msgs::MagneticField>& MovieReader::getMagneticFieldMsg() const
+{
+  return this->data->magneticFieldMsg;
+}
+
 const cras::optional<sensor_msgs::CameraInfo>& MovieReader::getCameraInfoMsg() const
 {
   return this->data->cameraInfoMsg;
@@ -212,6 +217,11 @@ const cras::optional<geometry_msgs::TransformStamped>& MovieReader::getZeroRollP
 const cras::optional<geometry_msgs::TransformStamped>& MovieReader::getOpticalFrameTF() const
 {
   return this->data->opticalTfMsg;
+}
+
+const cras::optional<vision_msgs::Detection2DArray>& MovieReader::getFacesMsg() const
+{
+  return this->data->facesMsg;
 }
 
 bool MovieReader::isSeekable() const

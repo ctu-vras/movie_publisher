@@ -15,8 +15,13 @@
 #include <cras_cpp_common/expected.hpp>
 #include <cras_cpp_common/param_utils.hpp>
 #include <geometry_msgs/Transform.h>
+#include <gps_common/GPSFix.h>
 #include <movie_publisher/movie_reader_ros.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
+#include <sensor_msgs/NavSatFix.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -105,6 +110,18 @@ protected:
    * \param[in] opticalTfMsg Static TF message.
    */
   virtual void processOpticalTf(const geometry_msgs::TransformStamped& opticalTfMsg);
+
+  /**
+   * \brief Process the magnetic field message.
+   * \param[in] magneticFieldMsg Magnetic field message.
+   */
+  virtual void processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg);
+
+  /**
+   * \brief Process the face detections message.
+   * \param[in] facesMsg Message with face detections.
+   */
+  virtual void processFaces(const vision_msgs::Detection2DArray& facesMsg);
 
   std::unique_ptr<MovieReaderRos> reader;  //!< Movie reader instance.
 

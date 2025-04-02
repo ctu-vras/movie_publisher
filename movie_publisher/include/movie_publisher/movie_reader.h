@@ -24,7 +24,9 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -164,6 +166,14 @@ public:
   const cras::optional<compass_msgs::Azimuth>& getAzimuthMsg() const;
 
   /**
+   * \brief Return a ROS message representing the magnetic field strength where the shot was taken.
+   * \return The magnetic field message or nullopt if the information cannot be extracted.
+   * \note Has to be called after open().
+   * \note The information is valid for the last message for which nexFrame(), open() or seek() was called.
+   */
+  const cras::optional<sensor_msgs::MagneticField>& getMagneticFieldMsg() const;
+
+  /**
    * \brief Return a ROS message representing the camera info with which the shot was taken.
    * \return The camera info message or nullopt if the information cannot be extracted.
    * \note Has to be called after open().
@@ -210,6 +220,14 @@ public:
    * \note The information is valid for the last message for which nexFrame(), open() or seek() was called.
    */
   const cras::optional<geometry_msgs::TransformStamped>& getOpticalFrameTF() const;
+
+  /**
+   * \brief Return a ROS message representing the faces detected in the current image..
+   * \return The face positions or nullopt if the information cannot be extracted.
+   * \note Has to be called after open().
+   * \note The information is valid for the last message for which nexFrame(), open() or seek() was called.
+   */
+  const cras::optional<vision_msgs::Detection2DArray>& getFacesMsg() const;
 
   /**
    * \brief Set whether YUV*** formats should be decoded to YUV422, or whether the default encoding should be used.

@@ -23,7 +23,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Vector3.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -407,8 +407,14 @@ std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPS
   return this->getGNSSPositionResult.emplace(result);
 }
 
+cras::optional<sensor_msgs::MagneticField> MetadataManager::getMagneticField()
+{
+  ONLY_CHECK_EXTRACTORS(getMagneticField);
+}
+
 cras::optional<compass_msgs::Azimuth> MetadataManager::getAzimuth()
 {
+  // TODO(peci1) compute from magnetic field and roll/pitch
   ONLY_CHECK_EXTRACTORS(getAzimuth);
 }
 
@@ -417,9 +423,19 @@ cras::optional<std::pair<double, double>> MetadataManager::getRollPitch()
   ONLY_CHECK_EXTRACTORS(getRollPitch);
 }
 
+cras::optional<geometry_msgs::Vector3> MetadataManager::getAngularVelocity()
+{
+  ONLY_CHECK_EXTRACTORS(getAngularVelocity);
+}
+
 cras::optional<geometry_msgs::Vector3> MetadataManager::getAcceleration()
 {
   ONLY_CHECK_EXTRACTORS(getAcceleration);
+}
+
+cras::optional<vision_msgs::Detection2DArray> MetadataManager::getFaces()
+{
+  ONLY_CHECK_EXTRACTORS(getFaces);
 }
 
 cras::optional<sensor_msgs::CameraInfo> MetadataManager::getCameraInfo()
@@ -465,14 +481,13 @@ cras::optional<sensor_msgs::Imu> MetadataManager::getImu()
 
   const auto rollPitchOrientation = this->getRollPitchOrientation();
   const auto acceleration = this->getAcceleration();
+  const auto angularVelocity = this->getAngularVelocity();
   const auto azimuth = this->getAzimuth();
 
   if (!rollPitchOrientation.has_value() && !acceleration.has_value() && !azimuth.has_value())
     FINISH(getImu)
 
   sensor_msgs::Imu msg;
-  msg.angular_velocity_covariance[0] = -1;
-
   if (acceleration.has_value())
   {
     msg.linear_acceleration_covariance = {0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1};
@@ -481,6 +496,16 @@ cras::optional<sensor_msgs::Imu> MetadataManager::getImu()
   else
   {
     msg.linear_acceleration_covariance[0] = -1;
+  }
+
+  if (angularVelocity.has_value())
+  {
+    msg.angular_velocity_covariance = {0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1};
+    msg.angular_velocity = *angularVelocity;
+  }
+  else
+  {
+    msg.angular_velocity_covariance[0] = -1;
   }
 
   if (rollPitchOrientation.has_value() || azimuth.has_value())

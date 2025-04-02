@@ -52,6 +52,7 @@
   <depend>gps_common</depend>
   <depend>roscpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>vision_msgs</depend>
 
   <exec_depend>ffmpeg</exec_depend>
   <exec_depend version_gte="1.0.2">rosbash_params</exec_depend>

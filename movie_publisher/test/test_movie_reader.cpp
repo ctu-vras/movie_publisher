@@ -104,6 +104,8 @@ TEST(MovieReader, FairphoneStill)  // NOLINT
   EXPECT_FALSE(m.getImuMsg().has_value());
   EXPECT_FALSE(m.getAzimuthMsg().has_value());
   EXPECT_FALSE(m.getZeroRollPitchTF().has_value());
+  EXPECT_FALSE(m.getMagneticFieldMsg().has_value());
+  EXPECT_FALSE(m.getFacesMsg().has_value());
 
   auto maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -147,6 +149,8 @@ TEST(MovieReader, FairphoneMovie)  // NOLINT
   EXPECT_FALSE(m.getImuMsg().has_value());
   EXPECT_FALSE(m.getAzimuthMsg().has_value());
   EXPECT_FALSE(m.getZeroRollPitchTF().has_value());
+  EXPECT_FALSE(m.getMagneticFieldMsg().has_value());
+  EXPECT_FALSE(m.getFacesMsg().has_value());
 
   auto maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -215,6 +219,8 @@ TEST(MovieReader, LumixStill)  // NOLINT
   EXPECT_TRUE(m.getOpticalFrameTF().has_value());
   EXPECT_EQ(1, m.getNumFrames());
   EXPECT_FALSE(m.getAzimuthMsg().has_value());
+  EXPECT_FALSE(m.getMagneticFieldMsg().has_value());
+  EXPECT_FALSE(m.getFacesMsg().has_value());
 
   auto maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -255,6 +261,8 @@ TEST(MovieReader, LumixMovie)  // NOLINT
   EXPECT_TRUE(m.getOpticalFrameTF().has_value());
   EXPECT_EQ(132, m.getNumFrames());
   EXPECT_FALSE(m.getAzimuthMsg().has_value());
+  EXPECT_FALSE(m.getMagneticFieldMsg().has_value());
+  EXPECT_FALSE(m.getFacesMsg().has_value());
 
   auto maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -323,6 +331,8 @@ TEST(MovieReader, FfmpegProcessed)  // NOLINT
   EXPECT_TRUE(m.getOpticalFrameTF().has_value());
   EXPECT_EQ(984, m.getNumFrames());
   EXPECT_FALSE(m.getAzimuthMsg().has_value());
+  EXPECT_FALSE(m.getMagneticFieldMsg().has_value());
+  EXPECT_FALSE(m.getFacesMsg().has_value());
 
   auto maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -390,6 +400,8 @@ TEST(MovieReader, IphoneStill)  // NOLINT
   EXPECT_FALSE(m.isSeekable());
   EXPECT_TRUE(m.getOpticalFrameTF().has_value());
   EXPECT_EQ(1, m.getNumFrames());
+  EXPECT_FALSE(m.getMagneticFieldMsg().has_value());
+  EXPECT_FALSE(m.getFacesMsg().has_value());
 
   auto maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
@@ -431,6 +443,8 @@ TEST(MovieReader, IphoneMovie)  // NOLINT
   EXPECT_TRUE(m.getOpticalFrameTF().has_value());
   EXPECT_EQ(234, m.getNumFrames());
   EXPECT_FALSE(m.getAzimuthMsg().has_value());
+  EXPECT_FALSE(m.getMagneticFieldMsg().has_value());
+  EXPECT_FALSE(m.getFacesMsg().has_value());
 
   auto maybeNextFrame = m.nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());

@@ -35,9 +35,11 @@ publication timestamps.
 - `movie` (`sensor_msgs/Image`): The published movie. Subtopics from image\_transport are also provided.
 - `movie/camera_info` (`sensor_msgs/CameraInfo`): Camera info.
 - `movie/azimuth` (`compass_msgs/Azimuth`): Georeferenced heading of the camera.
+- `movie/faces` (`vision_msgs/Detection2DArray`): Faces detected in the image.
 - `movie/fix` (`sensor_msgs/NavSatFix`): GNSS position of the camera.
 - `movie/fix_detail` (`gps_common/GPSFix`): GNSS position of the camera.
 - `movie/imu` (`sensor_msgs/Imu`): Orientation and acceleration of the camera.
+- `movie/mag` (`sensor_msgs/MagneticField`): Magnetic field strength.
 
 To extract the additional topics except `movie`, the node uses metadata extractors. See
 [the stack-level README](https://github.com/ctu-vras/movie_publisher/blob/HEAD/README.md) for details about the provided
@@ -104,9 +106,11 @@ Convert a movie file and its metadata to a ROS bag file.
  - `${~topic}/${~transport}` (*): The published movie compressed stream (if raw transport is not used).
  - `${~topic}/camera_info` (`sensor_msgs/CameraInfo`): Camera info.
  - `${~topic}/azimuth` (`compass_msgs/Azimuth`): Georeferenced heading of the camera.
+ - `${~topic}/faces` (`vision_msgs/Detection2DArray`): Faces detected in the image.
  - `${~topic}/fix` (`sensor_msgs/NavSatFix`): GNSS position of the camera.
  - `${~topic}/fix_detail` (`gps_common/GPSFix`): GNSS position of the camera.
  - `${~topic}/imu` (`sensor_msgs/Imu`): Orientation and acceleration of the camera.
+ - `${~topic}/mag` (`sensor_msgs/MagneticField`): Magnetic field strength.
  
 To change the prefix of all topics, set `~topic` parameter. To change the name of a single topic, remap it.
  

@@ -23,7 +23,9 @@
 #include <rosbag/bag.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -36,9 +38,11 @@ namespace movie_publisher
  * - `${~topic}/${~transport}` (*): The published movie compressed stream (if raw transport is not used).
  * - `${~topic}/camera_info` (`sensor_msgs/CameraInfo`): Camera info.
  * - `${~topic}/azimuth` (`compass_msgs/Azimuth`): Georeferenced heading of the camera.
+ * - `${~topic}/faces` (`vision_msgs/Detection2DArray`): Faces detected in the image.
  * - `${~topic}/fix` (`sensor_msgs/NavSatFix`): GNSS position of the camera.
  * - `${~topic}/fix_detail` (`gps_common/GPSFix`): GNSS position of the camera.
  * - `${~topic}/imu` (`sensor_msgs/Imu`): Orientation and acceleration of the camera.
+ * - `${~topic}/mag` (`sensor_msgs/MagneticField`): Magnetic field strength.
  *
  * To extract the additional topics except `movie`, the node uses instances of MetadataExtractor.
  *
@@ -124,11 +128,13 @@ protected:
   virtual std::string getImageTopic() const;
   virtual std::string getCameraInfoTopic() const;
   virtual std::string getAzimuthTopic() const;
+  virtual std::string getMagneticFieldTopic() const;
   virtual std::string getNavSatFixTopic() const;
   virtual std::string getGpsTopic() const;
   virtual std::string getImuTopic() const;
   virtual std::string getTfTopic() const;
   virtual std::string getStaticTfTopic() const;
+  virtual std::string getFacesTopic() const;
 
   /**
    * \brief Prefix the given topic name with the base topic.
@@ -140,11 +146,13 @@ protected:
   cras::expected<void, std::string> processImage(
     const sensor_msgs::ImageConstPtr& image, const cras::optional<sensor_msgs::CameraInfo>& cameraInfoMsg) override;
   void processAzimuth(const compass_msgs::Azimuth& azimuthMsg) override;
+  void processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg) override;
   void processNavSatFix(const sensor_msgs::NavSatFix& navSatFixMsg) override;
   void processGps(const gps_common::GPSFix& gpsMsg) override;
   void processImu(const sensor_msgs::Imu& imuMsg) override;
   void processZeroRollPitchTf(const geometry_msgs::TransformStamped& zeroRollPitchTfMsg) override;
   void processOpticalTf(const geometry_msgs::TransformStamped& opticalTfMsg) override;
+  void processFaces(const vision_msgs::Detection2DArray& facesMsg) override;
 
   std::unique_ptr<image_transport_codecs::ImageTransportCodecs> imageCodecs;  //!< Image transport codec instance.
   std::unique_ptr<rosbag::Bag> bag;  //!< The bag to write to.

@@ -21,7 +21,9 @@
 #include <gps_common/GPSFix.h>
 #include <ros/time.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <vision_msgs/Detection2DArray.h>
 
 
 class AVFormatContext;
@@ -176,6 +178,11 @@ public:
    */
   virtual cras::optional<compass_msgs::Azimuth> getAzimuth() { return cras::nullopt; }
   /**
+   * \brief Get the magnetic field acting on the camera.
+   * \return The magnetic field measurement in X, Y and Z axes [T].
+   */
+  virtual cras::optional<sensor_msgs::MagneticField> getMagneticField() { return cras::nullopt; }
+  /**
    * \brief Get gravity-aligned roll and pitch of the camera when capturing the frame.
    * \return Roll, pitch [rad].
    */
@@ -185,6 +192,16 @@ public:
    * \return The acceleration vector [m/s^2].
    */
   virtual cras::optional<geometry_msgs::Vector3> getAcceleration() { return cras::nullopt; }
+  /**
+   * \brief Get the angular velocity acting on the camera when capturing the frame.
+   * \return The angular velocity [rad/s].
+   */
+  virtual cras::optional<geometry_msgs::Vector3> getAngularVelocity() { return cras::nullopt; }
+  /**
+   * \brief Get faces detected in the scene.
+   * \return The faces that were detected.
+   */
+  virtual cras::optional<vision_msgs::Detection2DArray> getFaces() { return cras::nullopt; }
 
   typedef std::shared_ptr<MetadataExtractor> Ptr;
   typedef std::shared_ptr<const MetadataExtractor> ConstPtr;

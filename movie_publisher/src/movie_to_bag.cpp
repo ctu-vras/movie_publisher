@@ -27,8 +27,10 @@ namespace fs = CXX_FILESYSTEM_NAMESPACE;
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <tf2_msgs/TFMessage.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -158,6 +160,11 @@ std::string MovieToBag::getAzimuthTopic() const
   return this->getPrefixedTopic("azimuth");
 }
 
+std::string MovieToBag::getMagneticFieldTopic() const
+{
+  return this->getPrefixedTopic("imu/mag");
+}
+
 std::string MovieToBag::getNavSatFixTopic() const
 {
   return this->getPrefixedTopic("fix");
@@ -181,6 +188,11 @@ std::string MovieToBag::getTfTopic() const
 std::string MovieToBag::getStaticTfTopic() const
 {
   return this->resolveName("/tf_static");
+}
+
+std::string MovieToBag::getFacesTopic() const
+{
+  return this->resolveName("faces");
 }
 
 std::string MovieToBag::getPrefixedTopic(const std::string& topicName) const
@@ -231,6 +243,18 @@ void MovieToBag::processAzimuth(const compass_msgs::Azimuth& azimuthMsg)
   catch (const rosbag::BagIOException& e)
   {
     CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save azimuth info into bagfile: %s", e.what()));
+  }
+}
+
+void MovieToBag::processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg)
+{
+  try
+  {
+    this->bag->write(this->getMagneticFieldTopic(), magneticFieldMsg.header.stamp, magneticFieldMsg);
+  }
+  catch (const rosbag::BagIOException& e)
+  {
+    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save magnetic field info into bagfile: %s", e.what()));
   }
 }
 
@@ -298,4 +322,15 @@ void MovieToBag::processOpticalTf(const geometry_msgs::TransformStamped& optical
   }
 }
 
+void MovieToBag::processFaces(const vision_msgs::Detection2DArray& facesMsg)
+{
+  try
+  {
+    this->bag->write(this->getFacesTopic(), facesMsg.header.stamp, facesMsg);
+  }
+  catch (const rosbag::BagIOException& e)
+  {
+    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save detected faces info into bagfile: %s", e.what()));
+  }
+}
 }

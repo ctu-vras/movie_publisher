@@ -18,8 +18,10 @@
 #include <movie_publisher/movie_processor_base.h>
 #include <movie_publisher/movie_reader_ros.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <tf2_msgs/TFMessage.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -79,6 +81,14 @@ void MovieProcessorBase::processZeroRollPitchTf(const geometry_msgs::TransformSt
 }
 
 void MovieProcessorBase::processOpticalTf(const geometry_msgs::TransformStamped& opticalTfMsg)
+{
+}
+
+void MovieProcessorBase::processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg)
+{
+}
+
+void MovieProcessorBase::processFaces(const vision_msgs::Detection2DArray& facesMsg)
 {
 }
 

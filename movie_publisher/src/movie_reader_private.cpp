@@ -27,11 +27,13 @@
 #include <ros/time.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <vision_msgs/Detection2DArray.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -206,6 +208,14 @@ void MovieReaderPrivate::extractMetadata()
     this->azimuthMsg->header.stamp = this->getTimestamp(this->lastSeek);
   }
 
+  const auto magField = this->metadataManager->getMagneticField();
+  if (magField.has_value())
+  {
+    this->magneticFieldMsg = *magField;
+    this->magneticFieldMsg->header.frame_id = this->frameId;
+    this->magneticFieldMsg->header.stamp = this->getTimestamp(this->lastSeek);
+  }
+
   const auto imuMsg = this->metadataManager->getImu();
   if (imuMsg.has_value())
   {
@@ -234,6 +244,14 @@ void MovieReaderPrivate::extractMetadata()
     msg.header.frame_id = this->frameId;
     msg.transform = *opticalTf;
     msg.child_frame_id = this->opticalFrameId;
+  }
+
+  const auto facesMsg = this->metadataManager->getFaces();
+  if (facesMsg.has_value())
+  {
+    this->facesMsg = *facesMsg;
+    this->facesMsg->header.frame_id = this->frameId;
+    this->facesMsg->header.stamp = this->getTimestamp(this->lastSeek);
   }
 
   // Temporarily change to a UTF-8 locale so that we can print the ° characters.
@@ -275,8 +293,10 @@ void MovieReaderPrivate::extractMetadata()
     p *= 180.0 / M_PI;
     y *= 180.0 / M_PI;
     CRAS_INFO("Roll is %.1f°, pitch is %.1f°, yaw is %.1f°.", r, p, y);
+    const auto& rates = this->imuMsg->angular_velocity;
+    CRAS_INFO("Angular rate is %.2f %.2f %.2f rad/s.", rates.x, rates.y, rates.z);
     const auto& a = this->imuMsg->linear_acceleration;
-    CRAS_INFO("Acceleration is %.2f %.2f %.2f .", a.x, a.y, a.z);
+    CRAS_INFO("Acceleration is %.2f %.2f %.2f m/s^2.", a.x, a.y, a.z);
   }
   if (this->cameraInfoMsg.has_value())
   {
@@ -295,6 +315,8 @@ void MovieReaderPrivate::updateMetadata(const ros::Time& ptsTime)
   const auto time = this->getTimestamp(ptsTime);
   if (this->azimuthMsg.has_value())
     this->azimuthMsg->header.stamp = time;
+  if (this->magneticFieldMsg.has_value())
+    this->magneticFieldMsg->header.stamp = time;
   if (this->cameraInfoMsg.has_value())
     this->cameraInfoMsg->header.stamp = time;
   if (this->navSatFixMsg.has_value())
@@ -305,6 +327,8 @@ void MovieReaderPrivate::updateMetadata(const ros::Time& ptsTime)
     this->imuMsg->header.stamp = time;
   if (this->zeroRollPitchTfMsg.has_value())
     this->zeroRollPitchTfMsg->header.stamp = time;
+  if (this->facesMsg.has_value())
+    this->facesMsg->header.stamp = time;
 
   // opticalTfMsg is static TF, so update its stamp only at the beginning
   if (ptsTime == ros::Time{} || ptsTime == this->lastSeek)

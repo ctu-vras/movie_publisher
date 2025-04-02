@@ -25,9 +25,11 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -39,9 +41,11 @@ namespace movie_publisher
  * - `movie` (`sensor_msgs/Image`): The published movie. Subtopics from image\_transport are also provided.
  * - `movie/camera_info` (`sensor_msgs/CameraInfo`): Camera info.
  * - `movie/azimuth` (`compass_msgs/Azimuth`): Georeferenced heading of the camera.
+ * - `movie/faces` (`vision_msgs/Detection2DArray`): Faces detected in the image.
  * - `movie/fix` (`sensor_msgs/NavSatFix`): GNSS position of the camera.
  * - `movie/fix_detail` (`gps_common/GPSFix`): GNSS position of the camera.
  * - `movie/imu` (`sensor_msgs/Imu`): Orientation and acceleration of the camera.
+ * - `movie/mag` (`sensor_msgs/MagneticField`): Magnetic field strength.
  *
  * To extract the additional topics except `movie`, the node uses instances of MetadataExtractor.
  *
@@ -174,12 +178,16 @@ public:
     ros::NodeHandle topicsNh(this->getNodeHandle(), "movie");
     if (this->reader->getAzimuthMsg().has_value())
       this->azimuthPub = topicsNh.advertise<compass_msgs::Azimuth>("azimuth", pubQueueSize);
+    if (this->reader->getMagneticFieldMsg().has_value())
+      this->magPub = topicsNh.advertise<sensor_msgs::MagneticField>("imu/mag", pubQueueSize);
     if (this->reader->getNavSatFixMsg().has_value())
       this->navMsgPub = topicsNh.advertise<sensor_msgs::NavSatFix>("fix", pubQueueSize);
     if (this->reader->getGpsMsg().has_value())
       this->gpsPub = topicsNh.advertise<gps_common::GPSFix>("fix_detail", pubQueueSize);
     if (this->reader->getImuMsg().has_value())
       this->imuPub = topicsNh.advertise<sensor_msgs::Imu>("imu", pubQueueSize);
+    if (this->reader->getFacesMsg().has_value())
+      this->imuPub = topicsNh.advertise<vision_msgs::Detection2DArray>("faces", pubQueueSize);
 
     waitAfterPublisherCreated.sleep();
 
@@ -274,6 +282,11 @@ private:
     this->azimuthPub.publish(azimuthMsg);
   }
 
+  void processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg) override
+  {
+    this->magPub.publish(magneticFieldMsg);
+  }
+
   void processNavSatFix(const sensor_msgs::NavSatFix& navSatFixMsg) override
   {
     this->navMsgPub.publish(navSatFixMsg);
@@ -299,6 +312,11 @@ private:
     this->staticTfBroadcaster.sendTransform(opticalTfMsg);
   }
 
+  void processFaces(const vision_msgs::Detection2DArray& facesMsg) override
+  {
+    this->facesPub.publish(facesMsg);
+  }
+
   std::unique_ptr<image_transport::ImageTransport> imageTransport;  //!< Image transport instance.
   image_transport::Publisher imagePub;  //!< Image publisher (no camera info).
   image_transport::CameraPublisher cameraPub;  //!< Camera publisher (with camera info).
@@ -306,8 +324,10 @@ private:
   ros::Publisher navMsgPub;  //!< Fix publisher.
   ros::Publisher gpsPub;  //!< Detailed fix publisher.
   ros::Publisher imuPub;  //!< IMU publisher.
+  ros::Publisher magPub;  //!< Magnetic field publisher.
   tf2_ros::TransformBroadcaster tfBroadcaster;  //!< Dynamic TF broadcaster.
   tf2_ros::StaticTransformBroadcaster staticTfBroadcaster;  //!< Static TF broadcaster.
+  ros::Publisher facesPub;  //!< Publisher of detected faces.
 
   bool spinAfterEnd {false};  //!< Whether to keep spinning ROS after the movie has ended.
   bool loop {false};  //!< Whether to loop playback when reaching the end of movie.

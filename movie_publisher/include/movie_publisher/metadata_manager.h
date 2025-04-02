@@ -25,7 +25,9 @@
 #include <ros/time.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -86,10 +88,12 @@ public:
   cras::optional<CI::_K_type> getIntrinsicMatrix() override;
   cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> getDistortion() override;
   std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>> getGNSSPosition() override;
+cras::optional<sensor_msgs::MagneticField> getMagneticField() override;
   cras::optional<compass_msgs::Azimuth> getAzimuth() override;
   cras::optional<std::pair<double, double>> getRollPitch() override;
+  cras::optional<geometry_msgs::Vector3> getAngularVelocity() override;
   cras::optional<geometry_msgs::Vector3> getAcceleration() override;
-
+  cras::optional<vision_msgs::Detection2DArray> getFaces() override;
   /**
    * \brief Extract as much camera info as possible.
    * \return Extracted camera info, or nothing.
@@ -149,12 +153,15 @@ protected:
   cras::optional<std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>>>
     getGNSSPositionResult;  //!< Cached result.
   cras::optional<cras::optional<compass_msgs::Azimuth>> getAzimuthResult;  //!< Cached result.
+  cras::optional<cras::optional<sensor_msgs::MagneticField>> getMagneticFieldResult;  //!< Cached result.
   cras::optional<cras::optional<std::pair<double, double>>> getRollPitchResult;  //!< Cached result.
+  cras::optional<cras::optional<geometry_msgs::Vector3>> getAngularVelocityResult;  //!< Cached result.
   cras::optional<cras::optional<geometry_msgs::Vector3>> getAccelerationResult;  //!< Cached result.
   cras::optional<cras::optional<sensor_msgs::CameraInfo>> getCameraInfoResult;  //!< Cached result.
   cras::optional<cras::optional<sensor_msgs::Imu>> getImuResult;  //!< Cached result.
   cras::optional<cras::optional<geometry_msgs::Quaternion>> getRollPitchOrientationResult;  //!< Cached result.
   cras::optional<cras::optional<geometry_msgs::Transform>> getOpticalFrameTFResult;  //!< Cached result.
+  cras::optional<cras::optional<vision_msgs::Detection2DArray>> getFacesResult;  //!< Cached result.
 
   friend StackGuard;
 };
