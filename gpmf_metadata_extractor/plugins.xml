@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<library path="lib/libgpmf_metadata_extractor">
+  <class name="movie_publisher/gpmf_metadata_extractor" type="movie_publisher::GPMFMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Metadata extractor from GPMF streams.
+    </description>
+  </class>
+</library>
