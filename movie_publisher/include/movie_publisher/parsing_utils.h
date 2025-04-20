@@ -14,7 +14,12 @@
 #include <string>
 #include <unordered_map>
 
-#include <movie_publisher/movie_reader.h>
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
+#include <cras_cpp_common/expected.hpp>
+#include <movie_publisher/types.h>
 #include <xmlrpcpp/XmlRpcValue.h>
 
 namespace movie_publisher
@@ -46,16 +51,29 @@ bool parseTimestampOffset(const std::unordered_map<std::string, double>& extraVa
 /**
  * \brief Parse TimestampSource from text.
  * \param[in] param The text to parse.
- * \return The timestamp source.
- * \throws std::runtime_error On error.
+ * \return The timestamp source or error.
  */
-MovieReader::TimestampSource parseTimestampSource(const std::string& param);
+TimestampSource parseTimestampSource(const std::string& param);
 
 /**
  * \brief Convert the given TimestampSource to text.
  * \param[in] source The timestamp source.
- * \return The text representing the timestamp source.
+ * \return The text representing the timestamp source, or an error.
  */
-std::string timestampSourceToStr(const MovieReader::TimestampSource& source);
+std::string timestampSourceToStr(const TimestampSource& source);
+
+/**
+ * \brief Map ROS image encodings to Libav pixel formats.
+ * \param[in] rosEncoding ROS image encoding.
+ * \return Corresponding libav pixel format, or error if no conversion exists.
+ */
+cras::expected<AVPixelFormat, std::string> rosEncodingToAvPixFmt(const std::string& rosEncoding);
+
+/**
+ * \brief Map Libav pixel formats to ROS image encodings.
+ * \param[in] libavPixelFormat Libav pixel format.
+ * \return Corresponding ROS image encoding, or error if no conversion exists.
+ */
+cras::expected<std::string, std::string> avPixFmtToRosEncoding(const AVPixelFormat& libavPixelFormat);
 
 }

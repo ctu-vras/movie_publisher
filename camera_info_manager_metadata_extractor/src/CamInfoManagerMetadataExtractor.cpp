@@ -118,7 +118,7 @@ int CamInfoManagerMetadataExtractor::getPriority() const
   return 70;
 }
 
-cras::optional<CI::_K_type> CamInfoManagerMetadataExtractor::getIntrinsicMatrix()
+cras::optional<IntrinsicMatrix> CamInfoManagerMetadataExtractor::getIntrinsicMatrix()
 {
   const auto cameraInfo = this->data->getCameraInfo();
   if (!cameraInfo.has_value())
@@ -128,19 +128,19 @@ cras::optional<CI::_K_type> CamInfoManagerMetadataExtractor::getIntrinsicMatrix(
   return cameraInfo->K;
 }
 
-cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> CamInfoManagerMetadataExtractor::getDistortion()
+cras::optional<std::pair<DistortionType, Distortion>> CamInfoManagerMetadataExtractor::getDistortion()
 {
   const auto cameraInfo = this->data->getCameraInfo();
   if (!cameraInfo.has_value())
     return cras::nullopt;
 
   CRAS_DEBUG("Camera distortion parameters have been read from stored camera info.");
-  return std::pair<CI::_distortion_model_type, CI::_D_type>{cameraInfo->distortion_model, cameraInfo->D};
+  return std::pair<DistortionType, Distortion>{cameraInfo->distortion_model, cameraInfo->D};
 }
 
 MetadataExtractor::Ptr CamInfoManagerMetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
-  if (params.log == nullptr || params.manager.lock() == nullptr || params.params == nullptr)
+  if (params.log == nullptr || params.manager.lock() == nullptr || params.config.rosParams() == nullptr)
     return nullptr;
 
   const std::list<std::string> defaultCalibURLs
@@ -152,7 +152,7 @@ MetadataExtractor::Ptr CamInfoManagerMetadataExtractorPlugin::getExtractor(const
 
   try
   {
-    const auto& p = params.params->paramsInNamespace("caminfo_manager");
+    const auto& p = params.config.rosParams()->paramsInNamespace("caminfo_manager");
     calibrationURLs = p->getParam("calibration_urls", defaultCalibURLs);
   }
   catch (const std::runtime_error&)
@@ -161,7 +161,7 @@ MetadataExtractor::Ptr CamInfoManagerMetadataExtractorPlugin::getExtractor(const
   }
 
   return std::make_shared<CamInfoManagerMetadataExtractor>(
-    params.log, params.manager, params.width, params.height, calibrationURLs);
+    params.log, params.manager, params.info.width(), params.info.height(), calibrationURLs);
 }
 
 }

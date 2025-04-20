@@ -60,7 +60,7 @@ public:
   cras::optional<double> getCropFactor() override;
   cras::optional<std::pair<double, double>> getSensorSizeMM() override;
   cras::optional<double> getFocalLengthMM() override;
-  cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> getDistortion() override;
+  cras::optional<std::pair<DistortionType, Distortion>> getDistortion() override;
 
 private:
   std::unique_ptr<LensfunMetadataPrivate> data;  //!< PIMPL

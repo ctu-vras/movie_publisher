@@ -16,13 +16,19 @@
 #include <unordered_map>
 #include <vector>
 
+extern "C" {
+#include <libavformat/avformat.h>
+}
+
 #include <muParser.h>
 
 #include <cras_cpp_common/string_utils.hpp>
-#include <movie_publisher/movie_reader.h>
+#include <cras_cpp_common/xmlrpc_value_utils.hpp>
 #include <movie_publisher/parsing_utils.h>
+#include <movie_publisher/types.h>
 #include <ros/duration.h>
 #include <ros/time.h>
+#include <sensor_msgs/image_encodings.h>
 #include <xmlrpcpp/XmlRpcValue.h>
 
 namespace movie_publisher
@@ -80,6 +86,8 @@ T parseTimeParam(const XmlRpc::XmlRpcValue& param)
   }
 }
 
+template StreamDuration parseTimeParam(const XmlRpc::XmlRpcValue& param);
+template StreamTime parseTimeParam(const XmlRpc::XmlRpcValue& param);
 template ros::Duration parseTimeParam(const XmlRpc::XmlRpcValue& param);
 template ros::Time parseTimeParam(const XmlRpc::XmlRpcValue& param);
 
@@ -142,39 +150,89 @@ bool parseTimestampOffset(const std::unordered_map<std::string, double>& extraVa
   }
 }
 
-MovieReader::TimestampSource parseTimestampSource(const std::string& param)
+TimestampSource parseTimestampSource(const std::string& param)
 {
   const auto& p = cras::toLower(param);
   if (p == "all_zeros")
-    return MovieReader::TimestampSource::AllZeros;
+    return TimestampSource::AllZeros;
   else if (p == "absolute_timecode")
-    return MovieReader::TimestampSource::AbsoluteVideoTimecode;
+    return TimestampSource::AbsoluteVideoTimecode;
   else if (p == "relative_timecode")
-    return MovieReader::TimestampSource::RelativeVideoTimecode;
+    return TimestampSource::RelativeVideoTimecode;
   else if (p == "ros_time")
-    return MovieReader::TimestampSource::RosTime;
+    return TimestampSource::RosTime;
   else if (p == "metadata")
-    return MovieReader::TimestampSource::FromMetadata;
+    return TimestampSource::FromMetadata;
   throw std::runtime_error(cras::format("Value %s is not a valid timestamp_source value.", param.c_str()));
 }
 
-std::string timestampSourceToStr(const MovieReader::TimestampSource& source)
+std::string timestampSourceToStr(const TimestampSource& source)
 {
   switch (source)
   {
-    case MovieReader::TimestampSource::AllZeros:
+    case TimestampSource::AllZeros:
       return "all_zeros";
-    case MovieReader::TimestampSource::AbsoluteVideoTimecode:
+    case TimestampSource::AbsoluteVideoTimecode:
       return "absolute_timecode";
-    case MovieReader::TimestampSource::RelativeVideoTimecode:
+    case TimestampSource::RelativeVideoTimecode:
       return "relative_timecode";
-    case MovieReader::TimestampSource::RosTime:
+    case TimestampSource::RosTime:
       return "ros_time";
-    case MovieReader::TimestampSource::FromMetadata:
+    case TimestampSource::FromMetadata:
       return "metadata";
     default:
       throw std::runtime_error("Wrong value");
   }
+}
+
+//! \brief Map ROS image encodings to Libav pixel formats.
+inline const std::unordered_map<std::string, AVPixelFormat> _rosEncodingToAvPixFmt =
+{
+  {sensor_msgs::image_encodings::YUV422, AV_PIX_FMT_UYVY422},
+  {sensor_msgs::image_encodings::BGR8, AV_PIX_FMT_BGR24},
+  {sensor_msgs::image_encodings::BGR16, AV_PIX_FMT_BGR48},
+  {sensor_msgs::image_encodings::BGRA8, AV_PIX_FMT_BGRA},
+  {sensor_msgs::image_encodings::BGRA16, AV_PIX_FMT_BGRA64},
+  {sensor_msgs::image_encodings::RGB8, AV_PIX_FMT_RGB24},
+  {sensor_msgs::image_encodings::RGB16, AV_PIX_FMT_RGB48},
+  {sensor_msgs::image_encodings::RGBA8, AV_PIX_FMT_RGBA},
+  {sensor_msgs::image_encodings::RGBA16, AV_PIX_FMT_RGBA64},
+  {sensor_msgs::image_encodings::MONO8, AV_PIX_FMT_GRAY8},
+  {sensor_msgs::image_encodings::MONO16, AV_PIX_FMT_GRAY16},
+};
+
+cras::expected<AVPixelFormat, std::string> rosEncodingToAvPixFmt(const std::string& rosEncoding)
+{
+  const auto it = _rosEncodingToAvPixFmt.find(rosEncoding);
+  if (it != _rosEncodingToAvPixFmt.end())
+    return it->second;
+  return cras::make_unexpected(cras::format(
+    "ROS encoding %s has no corresponding libav pixel format", rosEncoding.c_str()));
+}
+
+//! \brief Map Libav pixel formats to ROS image encodings.
+inline const std::unordered_map<AVPixelFormat, std::string> _avPixFmtToRosEncoding =
+{
+  {AV_PIX_FMT_UYVY422, sensor_msgs::image_encodings::YUV422},
+  {AV_PIX_FMT_BGR24, sensor_msgs::image_encodings::BGR8},
+  {AV_PIX_FMT_BGR48, sensor_msgs::image_encodings::BGR16},
+  {AV_PIX_FMT_BGRA, sensor_msgs::image_encodings::BGRA8},
+  {AV_PIX_FMT_BGRA64, sensor_msgs::image_encodings::BGRA16},
+  {AV_PIX_FMT_RGB24, sensor_msgs::image_encodings::RGB8},
+  {AV_PIX_FMT_RGB48, sensor_msgs::image_encodings::RGB16},
+  {AV_PIX_FMT_RGBA, sensor_msgs::image_encodings::RGBA8},
+  {AV_PIX_FMT_RGBA64, sensor_msgs::image_encodings::RGBA16},
+  {AV_PIX_FMT_GRAY8, sensor_msgs::image_encodings::MONO8},
+  {AV_PIX_FMT_GRAY16, sensor_msgs::image_encodings::MONO16},
+};
+
+cras::expected<std::string, std::string> avPixFmtToRosEncoding(const AVPixelFormat& libavPixelFormat)
+{
+  const auto it = _avPixFmtToRosEncoding.find(libavPixelFormat);
+  if (it != _avPixFmtToRosEncoding.end())
+    return it->second;
+  return cras::make_unexpected(cras::format(
+    "libav pixel format %i has no corresponding ROS image encoding.", libavPixelFormat));
 }
 
 }

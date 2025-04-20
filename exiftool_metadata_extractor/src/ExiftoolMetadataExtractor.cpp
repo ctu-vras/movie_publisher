@@ -767,11 +767,12 @@ cras::optional<ExifData<ExifSRational>> ExiftoolMetadataExtractor::getExifPitchA
 
 MetadataExtractor::Ptr ExiftoolMetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
-  if (params.log == nullptr || params.filename.empty() || params.width == 0 || params.height == 0)
+  if (params.log == nullptr || params.info.filenameOrURL().empty() ||
+      params.info.width() == 0 || params.info.height() == 0)
     return nullptr;
 
   return std::make_shared<ExiftoolMetadataExtractor>(
-    params.log, params.manager, params.filename, params.width, params.height);
+    params.log, params.manager, params.info.filenameOrURL(), params.info.width(), params.info.height());
 }
 
 }

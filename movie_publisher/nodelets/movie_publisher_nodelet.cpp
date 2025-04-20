@@ -19,7 +19,7 @@
 #include <gps_common/GPSFix.h>
 #include <image_transport/image_transport.h>
 #include <image_transport/publisher.h>
-#include <movie_publisher/movie_processor_base.h>
+#include <movie_publisher/movie_metadata_processor.h>
 #include <movie_publisher/parsing_utils.h>
 #include <nodelet/nodelet.h>
 #include <pluginlib/class_list_macros.hpp>
@@ -30,9 +30,177 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <vision_msgs/Detection2DArray.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
+#include "movie_publisher/movie_reader_ros.h"
 
 namespace movie_publisher
 {
+
+class NodeletMetadataProcessor : public MovieMetadataProcessor, protected cras::HasLogger
+{
+public:
+  explicit NodeletMetadataProcessor(const cras::LogHelperPtr& log, const cras::BoundParamHelperPtr& params,
+    const ros::NodeHandle& nh) : HasLogger(log), params(params)
+  {
+    this->topicsNh = ros::NodeHandle(nh, "movie");
+    this->imageTransport = std::make_unique<image_transport::ImageTransport>(nh);
+  }
+
+  void shutdown()
+  {
+    this->imagePub.shutdown();
+    this->cameraPub.shutdown();
+    this->imageTransport.reset();
+    this->azimuthPub.shutdown();
+    this->navMsgPub.shutdown();
+    this->gpsPub.shutdown();
+    this->imuPub.shutdown();
+    this->magPub.shutdown();
+    this->facesPub.shutdown();
+  }
+
+  cras::expected<void, std::string> onMetadataReady(
+    const std::shared_ptr<TimedMetadataExtractor>& metadataExtractor) override
+  {
+    const auto result = MovieMetadataProcessor::onMetadataReady(metadataExtractor);
+    if (!result.has_value())
+      return cras::make_unexpected(result.error());
+
+    const auto immediateMode = this->params->getParam("immediate", false);
+    const auto pubQueueSize = this->params->getParam("publisher_queue_size", immediateMode ? 1000 : 10, "messages");
+    const auto waitAfterPublisherCreated =
+      this->params->getParam("wait_after_publisher_created", ros::WallDuration(1));
+
+    const auto& timedMeta = metadataExtractor->supportedTimedMetadata();
+    const auto hasTimedMeta = [&timedMeta](const TimedMetadataType type)
+    {
+      return timedMeta.find(type) != timedMeta.end();
+    };
+
+    if (metadataExtractor->getCameraInfo().has_value() || hasTimedMeta(TimedMetadataType::CAMERA_INFO))
+      this->cameraPub = this->imageTransport->advertiseCamera("movie", pubQueueSize);
+    else
+      this->imagePub = this->imageTransport->advertise("movie", pubQueueSize);
+
+    if (metadataExtractor->getAzimuth().has_value() || hasTimedMeta(TimedMetadataType::AZIMUTH))
+      this->azimuthPub = this->topicsNh.advertise<compass_msgs::Azimuth>("azimuth", pubQueueSize);
+    if (metadataExtractor->getMagneticField().has_value() || hasTimedMeta(TimedMetadataType::MAGNETIC_FIELD))
+      this->magPub = this->topicsNh.advertise<sensor_msgs::MagneticField>("imu/mag", pubQueueSize);
+    if (metadataExtractor->getGNSSPosition().first.has_value() || hasTimedMeta(TimedMetadataType::GNSS_POSITION))
+      this->navMsgPub = this->topicsNh.advertise<sensor_msgs::NavSatFix>("fix", pubQueueSize);
+    if (metadataExtractor->getGNSSPosition().second.has_value() || hasTimedMeta(TimedMetadataType::GNSS_POSITION))
+      this->gpsPub = this->topicsNh.advertise<gps_common::GPSFix>("fix_detail", pubQueueSize);
+    if (metadataExtractor->getImu().has_value() || hasTimedMeta(TimedMetadataType::IMU))
+      this->imuPub = this->topicsNh.advertise<sensor_msgs::Imu>("imu/data", pubQueueSize);
+    if (metadataExtractor->getFaces().has_value() || hasTimedMeta(TimedMetadataType::FACES))
+      this->facesPub = this->topicsNh.advertise<vision_msgs::Detection2DArray>("faces", pubQueueSize);
+
+    waitAfterPublisherCreated.sleep();
+
+    return {};
+  }
+
+  cras::expected<void, std::string> repeatLastFrame()
+  {
+    if (this->lastImageMsg != nullptr)
+      return this->processImage(this->lastImageMsg, this->lastCameraInfoMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processCameraInfo(const sensor_msgs::CameraInfo& cameraInfoMsg) override
+  {
+    this->lastCameraInfoMsg = cameraInfoMsg;
+    return {};
+  }
+
+  cras::expected<void, std::string> processImage(const sensor_msgs::ImageConstPtr& image,
+                                                 const cras::optional<sensor_msgs::CameraInfo>& cameraInfoMsg) override
+  {
+    this->lastImageMsg = image;
+
+    const auto& last = this->lastCameraInfoMsg;
+    if (cameraInfoMsg.has_value() || (last.has_value() && image->header.stamp == last->header.stamp))
+    {
+      const auto cameraInfo = boost::make_shared<sensor_msgs::CameraInfo>(
+        cameraInfoMsg.has_value() ? *cameraInfoMsg : *last);
+      this->cameraPub.publish(image, cameraInfo);
+    }
+    else
+    {
+      this->imagePub.publish(image);
+    }
+
+    return {};
+  }
+
+  cras::expected<void, std::string> processAzimuth(const compass_msgs::Azimuth& azimuthMsg) override
+  {
+    this->azimuthPub.publish(azimuthMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg) override
+  {
+    this->magPub.publish(magneticFieldMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processNavSatFix(const sensor_msgs::NavSatFix& navSatFixMsg) override
+  {
+    this->navMsgPub.publish(navSatFixMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processGps(const gps_common::GPSFix& gpsMsg) override
+  {
+    this->gpsPub.publish(gpsMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processImu(const sensor_msgs::Imu& imuMsg) override
+  {
+    this->imuPub.publish(imuMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processZeroRollPitchTf(
+    const geometry_msgs::TransformStamped& zeroRollPitchTfMsg) override
+  {
+    this->tfBroadcaster.sendTransform(zeroRollPitchTfMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processOpticalTf(const geometry_msgs::TransformStamped& opticalTfMsg) override
+  {
+    this->staticTfBroadcaster.sendTransform(opticalTfMsg);
+    return {};
+  }
+
+  cras::expected<void, std::string> processFaces(const vision_msgs::Detection2DArray& facesMsg) override
+  {
+    this->facesPub.publish(facesMsg);
+    return {};
+  }
+
+  cras::BoundParamHelperPtr params;
+  ros::NodeHandle topicsNh;
+  cras::optional<sensor_msgs::CameraInfo> lastCameraInfoMsg;
+  sensor_msgs::ImageConstPtr lastImageMsg;
+
+  std::unique_ptr<image_transport::ImageTransport> imageTransport;  //!< Image transport instance.
+  image_transport::Publisher imagePub;  //!< Image publisher (no camera info).
+  image_transport::CameraPublisher cameraPub;  //!< Camera publisher (with camera info).
+  ros::Publisher azimuthPub;  //!< Azimuth publisher.
+  ros::Publisher navMsgPub;  //!< Fix publisher.
+  ros::Publisher gpsPub;  //!< Detailed fix publisher.
+  ros::Publisher imuPub;  //!< IMU publisher.
+  ros::Publisher magPub;  //!< Magnetic field publisher.
+  tf2_ros::TransformBroadcaster tfBroadcaster;  //!< Dynamic TF broadcaster.
+  tf2_ros::StaticTransformBroadcaster staticTfBroadcaster;  //!< Static TF broadcaster.
+  ros::Publisher facesPub;  //!< Publisher of detected faces.
+};
+
 /**
  * \brief Publisher of movie files to ROS image topics.
  *
@@ -44,8 +212,8 @@ namespace movie_publisher
  * - `movie/faces` (`vision_msgs/Detection2DArray`): Faces detected in the image.
  * - `movie/fix` (`sensor_msgs/NavSatFix`): GNSS position of the camera.
  * - `movie/fix_detail` (`gps_common/GPSFix`): GNSS position of the camera.
- * - `movie/imu` (`sensor_msgs/Imu`): Orientation and acceleration of the camera.
- * - `movie/mag` (`sensor_msgs/MagneticField`): Magnetic field strength.
+ * - `movie/imu/data` (`sensor_msgs/Imu`): Orientation, angular velocity and acceleration of the camera.
+ * - `movie/imu/mag` (`sensor_msgs/MagneticField`): Magnetic field strength.
  *
  * To extract the additional topics except `movie`, the node uses instances of MetadataExtractor.
  *
@@ -102,22 +270,13 @@ namespace movie_publisher
  *                                                         this number until you get no missing start messages.
  * - `~publisher_queue_size` (int, default 1000 in immediate mode, 10 otherwise): `queue_size` of the movie publisher.
  */
-class MoviePublisherNodelet : public cras::Nodelet, protected MovieProcessorBase
+class MoviePublisherNodelet : public cras::Nodelet
 {
 public:
-  MoviePublisherNodelet() : MovieProcessorBase(cras::Nodelet::log)
-  {
-  }
-
   ~MoviePublisherNodelet() override
   {
     if (this->playThread.joinable())
       this->playThread.join();
-  }
-
-  cras::LogHelperConstPtr getCrasLogger() const
-  {
-    return MovieProcessorBase::getCrasLogger();
   }
 
   void onInit() override
@@ -135,16 +294,30 @@ public:
 
     const auto filename = this->privateParams()->getParam<std::string>("movie_file", cras::nullopt);
 
-    const auto openResult = MovieProcessorBase::open(filename, this->privateParams());
-    if (!openResult.has_value())
+    this->movieReader = std::make_unique<MovieReaderRos>(this->log, this->privateParams());
+    this->movieMetadataProcessor = std::make_shared<NodeletMetadataProcessor>(
+      this->log, this->privateParams(), this->getNodeHandle());
+    auto maybeConfig = this->movieReader->createDefaultConfig();
+    if (!maybeConfig.has_value())
     {
-      CRAS_FATAL("Failed to open movie file '%s' due to the following error: %s Movie publisher will do nothing.",
-        filename.c_str(), openResult.error().c_str());
+      CRAS_FATAL("Failed to create movie configuration object: %s Movie publisher will do nothing.",
+        maybeConfig.error().c_str());
       this->requestStop();
       return;
     }
 
-    this->isStillImage = this->reader->isStillImage();
+    auto config = *maybeConfig;
+    config.metadataProcessors().push_back(this->movieMetadataProcessor);
+
+    const auto maybeMovie = this->movieReader->open(filename, config);
+    if (!maybeMovie.has_value())
+    {
+      CRAS_FATAL("Failed to open movie file '%s' due to the following error: %s Movie publisher will do nothing.",
+        filename.c_str(), maybeMovie.error().c_str());
+      this->requestStop();
+      return;
+    }
+    this->movie = *maybeMovie;
 
     const auto immediateMode = this->privateParams()->getParam("immediate", false);
     if (immediateMode)
@@ -154,13 +327,8 @@ public:
     }
     else
     {
-      this->playbackRate = this->privateParams()->getParam("fps", ros::Rate(this->reader->getFrameRate()), "FPS");
+      this->playbackRate = this->privateParams()->getParam("fps", ros::Rate(this->movie->info().frameRate()), "FPS");
     }
-
-    const auto pubQueueSize =
-      this->privateParams()->getParam("publisher_queue_size", immediateMode ? 1000 : 10, "messages");
-    const auto waitAfterPublisherCreated =
-      this->privateParams()->getParam("wait_after_publisher_created", ros::WallDuration(1));
 
     if (immediateMode && this->loop)
     {
@@ -169,45 +337,25 @@ public:
       return;
     }
 
-    this->imageTransport = std::make_unique<image_transport::ImageTransport>(this->getNodeHandle());
-    if (this->reader->getCameraInfoMsg().has_value())
-      this->cameraPub = this->imageTransport->advertiseCamera("movie", pubQueueSize);
-    else
-      this->imagePub = this->imageTransport->advertise("movie", pubQueueSize);
-
-    ros::NodeHandle topicsNh(this->getNodeHandle(), "movie");
-    if (this->reader->getAzimuthMsg().has_value())
-      this->azimuthPub = topicsNh.advertise<compass_msgs::Azimuth>("azimuth", pubQueueSize);
-    if (this->reader->getMagneticFieldMsg().has_value())
-      this->magPub = topicsNh.advertise<sensor_msgs::MagneticField>("imu/mag", pubQueueSize);
-    if (this->reader->getNavSatFixMsg().has_value())
-      this->navMsgPub = topicsNh.advertise<sensor_msgs::NavSatFix>("fix", pubQueueSize);
-    if (this->reader->getGpsMsg().has_value())
-      this->gpsPub = topicsNh.advertise<gps_common::GPSFix>("fix_detail", pubQueueSize);
-    if (this->reader->getImuMsg().has_value())
-      this->imuPub = topicsNh.advertise<sensor_msgs::Imu>("imu", pubQueueSize);
-    if (this->reader->getFacesMsg().has_value())
-      this->imuPub = topicsNh.advertise<vision_msgs::Detection2DArray>("faces", pubQueueSize);
-
-    waitAfterPublisherCreated.sleep();
-
     this->playThread = std::thread([this] { this->play(); });
   }
 
   void play()
   {
+    cras::setThreadName("play_thread");
+
     do
     {
-      if (!this->isStillImage)
+      if (!this->movie->info().isStillImage())
       {
         if (this->verbose)
-          CRAS_INFO("Seeking to %s", cras::to_string(this->reader->getStart()).c_str());
-        const auto seekResult = this->reader->seek(this->reader->getStart());
+          CRAS_INFO("Seeking to %s", cras::to_string(this->movie->info().subclipStart()).c_str());
+        const auto seekResult = this->movie->seekInSubclip({0, 0});
         if (!seekResult.has_value())
         {
           CRAS_ERROR("Error seeking to position %s. Stopping publishing.",
-            cras::to_string(this->reader->getStart()).c_str());
-          this->imagePub.shutdown();
+            cras::to_string(this->movie->info().subclipStart()).c_str());
+          this->movieMetadataProcessor->shutdown();
           if (!this->spinAfterEnd)
             this->requestStop();
           return;
@@ -216,8 +364,8 @@ public:
 
       while (this->ok())
       {
-        const auto maybePtsAndImg = this->reader->nextFrame();
-        if (!maybePtsAndImg.has_value() || std::get<1>(*maybePtsAndImg) == nullptr)
+        const auto maybePtsAndImg = this->movie->nextFrame();
+        if (!maybePtsAndImg.has_value() || maybePtsAndImg->second == nullptr)
         {
           if (!maybePtsAndImg.has_value())
             CRAS_ERROR("Reading the movie has failed with the following error: %s Stopping publishing.",
@@ -229,111 +377,43 @@ public:
           else
             CRAS_INFO("Movie has ended, stopping publishing.");
 
-          this->imagePub.shutdown();
+          this->movieMetadataProcessor->shutdown();
           if (!this->spinAfterEnd)
             this->requestStop();
           return;
         }
 
-        const auto pts = std::get<0>(*maybePtsAndImg);
-        if (!this->reader->getEnd().isZero() && pts > this->reader->getEnd())
+        const auto playbackState = maybePtsAndImg->first;
+        const auto& subclipEnd = this->movie->info().subclipEnd();
+        if (!subclipEnd.isZero() && playbackState.streamTime() > subclipEnd)
           break;
-
-        const auto img = std::get<1>(*maybePtsAndImg);
 
         do  // Efficiently loop over still images without reloading them
         {
-          const auto processResult = this->processFrame(img, pts);
-          if (!processResult.has_value())
-          {
-            CRAS_DEBUG("Failed processing frame %zu/%zu: %s",
-              frameNum, this->reader->getNumFrames(), processResult.error().c_str());
-            CRAS_WARN_THROTTLE(1.0, "Failed processing frame %zu/%zu: %s",
-              frameNum, this->reader->getNumFrames(), processResult.error().c_str());
-          }
-
           if (this->playbackRate.has_value())
             this->playbackRate->sleep();
-        } while (this->loop && this->isStillImage && ros::ok() && this->ok());
+          if (this->loop && this->movie->info().isStillImage())
+            this->movieMetadataProcessor->repeatLastFrame();
+        } while (this->loop && this->movie->info().isStillImage() && ros::ok() && this->ok());
       }
     } while (this->loop && ros::ok() && this->ok());
 
     CRAS_INFO("Movie has ended, stopping publishing.");
 
-    this->imagePub.shutdown();
+    this->movieMetadataProcessor->shutdown();
     if (!this->spinAfterEnd)
       this->requestStop();
   }
 
 private:
-  cras::expected<void, std::string> processImage(const sensor_msgs::ImageConstPtr& image,
-    const cras::optional<sensor_msgs::CameraInfo>& cameraInfoMsg) override
-  {
-    if (cameraInfoMsg.has_value())
-      this->cameraPub.publish(image, boost::make_shared<sensor_msgs::CameraInfo>(*cameraInfoMsg));
-    else
-      this->imagePub.publish(image);
-
-    return {};
-  }
-
-  void processAzimuth(const compass_msgs::Azimuth& azimuthMsg) override
-  {
-    this->azimuthPub.publish(azimuthMsg);
-  }
-
-  void processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg) override
-  {
-    this->magPub.publish(magneticFieldMsg);
-  }
-
-  void processNavSatFix(const sensor_msgs::NavSatFix& navSatFixMsg) override
-  {
-    this->navMsgPub.publish(navSatFixMsg);
-  }
-
-  void processGps(const gps_common::GPSFix& gpsMsg) override
-  {
-    this->gpsPub.publish(gpsMsg);
-  }
-
-  void processImu(const sensor_msgs::Imu& imuMsg) override
-  {
-    this->imuPub.publish(imuMsg);
-  }
-
-  void processZeroRollPitchTf(const geometry_msgs::TransformStamped& zeroRollPitchTfMsg) override
-  {
-    this->tfBroadcaster.sendTransform(zeroRollPitchTfMsg);
-  }
-
-  void processOpticalTf(const geometry_msgs::TransformStamped& opticalTfMsg) override
-  {
-    this->staticTfBroadcaster.sendTransform(opticalTfMsg);
-  }
-
-  void processFaces(const vision_msgs::Detection2DArray& facesMsg) override
-  {
-    this->facesPub.publish(facesMsg);
-  }
-
-  std::unique_ptr<image_transport::ImageTransport> imageTransport;  //!< Image transport instance.
-  image_transport::Publisher imagePub;  //!< Image publisher (no camera info).
-  image_transport::CameraPublisher cameraPub;  //!< Camera publisher (with camera info).
-  ros::Publisher azimuthPub;  //!< Azimuth publisher.
-  ros::Publisher navMsgPub;  //!< Fix publisher.
-  ros::Publisher gpsPub;  //!< Detailed fix publisher.
-  ros::Publisher imuPub;  //!< IMU publisher.
-  ros::Publisher magPub;  //!< Magnetic field publisher.
-  tf2_ros::TransformBroadcaster tfBroadcaster;  //!< Dynamic TF broadcaster.
-  tf2_ros::StaticTransformBroadcaster staticTfBroadcaster;  //!< Static TF broadcaster.
-  ros::Publisher facesPub;  //!< Publisher of detected faces.
+  std::unique_ptr<MovieReaderRos> movieReader;
+  std::shared_ptr<NodeletMetadataProcessor> movieMetadataProcessor;
+  MoviePtr movie;
 
   bool spinAfterEnd {false};  //!< Whether to keep spinning ROS after the movie has ended.
   bool loop {false};  //!< Whether to loop playback when reaching the end of movie.
   cras::optional<ros::Rate> playbackRate;  //!< Rate of playback.
-
-  bool isStillImage {false};  //!< Whether the movie is a still image.
+  bool verbose {false};  //!< Verbose console printing.
 
   std::thread playThread;  //!< Thread that is responsible for timing and publishing the images.
 };

@@ -28,7 +28,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES movie_reader
+  LIBRARIES movie_reader movie_reader_types
   CATKIN_DEPENDS compass_msgs cras_cpp_common gps_common roscpp sensor_msgs vision_msgs
 )
 
@@ -49,16 +49,27 @@ pkg_check_modules(MUPARSER muparser REQUIRED IMPORTED_TARGET)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
+add_library(movie_reader_types
+  src/metadata_cache.cpp
+  src/metadata_extractor.cpp
+  src/movie_info.cpp
+  src/movie_open_config.cpp
+  src/movie_playback_state.cpp
+  src/parsing_utils.cpp
+  src/types.cpp
+)
+target_link_libraries(movie_reader_types PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg PkgConfig::MUPARSER)
+
 add_library(movie_reader
   src/metadata/ExifBaseMetadataExtractor.cpp
   src/metadata_manager.cpp
-  src/movie_processor_base.cpp
+  src/movie.cpp
+  src/movie_metadata_processor.cpp
   src/movie_reader.cpp
-  src/movie_reader_private.cpp
+  src/movie_private.cpp
   src/movie_reader_ros.cpp
-  src/parsing_utils.cpp
 )
-target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg PkgConfig::MUPARSER std::filesystem)
+target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} movie_reader_types PRIVATE ffmpeg std::filesystem)
 
 add_library(movie_reader_metadata_plugins
   src/metadata/FileMetadataExtractor.cpp
@@ -82,7 +93,7 @@ install(TARGETS movie_to_bag_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(TARGETS ${PROJECT_NAME}_nodelet movie_reader movie_reader_metadata_plugins movie_to_bag
+install(TARGETS ${PROJECT_NAME}_nodelet movie_reader movie_reader_metadata_plugins movie_reader_types movie_to_bag
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}

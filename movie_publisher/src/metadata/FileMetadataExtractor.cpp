@@ -51,10 +51,10 @@ cras::optional<ros::Time> FileMetadataExtractor::getCreationTime()
 
 MetadataExtractor::Ptr FileMetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
-  if (params.log == nullptr || params.filename.empty())
+  if (params.log == nullptr || params.info.filenameOrURL().empty())
     return nullptr;
 
-  return std::make_shared<FileMetadataExtractor>(params.log, params.filename);
+  return std::make_shared<FileMetadataExtractor>(params.log, params.info.filenameOrURL());
 }
 
 }

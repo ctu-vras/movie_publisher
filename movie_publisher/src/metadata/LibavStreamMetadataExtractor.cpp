@@ -35,7 +35,7 @@ LibavStreamMetadataExtractor::LibavStreamMetadataExtractor(
   const cras::LogHelperPtr& log, const AVFormatContext* avFormatContext, const size_t streamIndex)
   : MetadataExtractor(log), data(new LibavStreamMetadataPrivate())
 {
-  this->data->avFormatContext = static_cast<const AVFormatContext*>(avFormatContext);
+  this->data->avFormatContext = avFormatContext;
   this->data->streamIndex = streamIndex;
   this->data->stream = this->data->avFormatContext->streams[this->data->streamIndex];
 
@@ -248,7 +248,8 @@ MetadataExtractor::Ptr LibavStreamMetadataExtractorPlugin::getExtractor(const Me
   if (params.log == nullptr || params.avFormatContext == nullptr)
     return nullptr;
 
-  return std::make_shared<LibavStreamMetadataExtractor>(params.log, params.avFormatContext, params.streamIndex);
+  return std::make_shared<LibavStreamMetadataExtractor>(
+    params.log, params.avFormatContext, params.info.movieStreamIndex());
 }
 
 }

@@ -47,8 +47,8 @@ public:
 
   std::string getName() const override;
   int getPriority() const override;
-  cras::optional<CI::_K_type> getIntrinsicMatrix() override;
-  cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> getDistortion() override;
+  cras::optional<IntrinsicMatrix> getIntrinsicMatrix() override;
+  cras::optional<std::pair<DistortionType, Distortion>> getDistortion() override;
 
 private:
   std::unique_ptr<CamInfoManagerMetadataPrivate> data;  //!< PIMPL

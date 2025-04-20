@@ -34,6 +34,6 @@
 
   <export>
     <rosdoc config="rosdoc.yaml" />
-<!--    <movie_publisher metadata_plugins="${prefix}/plugins.xml" />-->
+    <movie_publisher metadata_plugins="${prefix}/plugins.xml" />
   </export>
 </package>

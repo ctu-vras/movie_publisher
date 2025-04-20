@@ -17,8 +17,6 @@
 #include <movie_publisher/metadata_extractor.h>
 #include <movie_publisher/metadata_manager.h>
 
-struct lfDatabase;
-
 namespace movie_publisher
 {
 
@@ -29,7 +27,7 @@ struct GPMFMetadataPrivate;
  *
  * The extractor reads the following ROS parameters:
  */
-class GPMFMetadataExtractor : public MetadataExtractor
+class GPMFMetadataExtractor : public TimedMetadataExtractor
 {
 public:
   /**
@@ -38,38 +36,46 @@ public:
    * \param[in] manager Metadata manager.
    * \param[in] width Width of the movie [px].
    * \param[in] height Height of the movie [px].
-   * \param[in] isStillImage Whether the movie is a still image (just one frame) or not.
    * \param[in] avFormatContext Libav context of the opened video file.
-   * \param[in] videoStreamIndex Index of the video stream.
+   * \param[in] priority Priority of the extractor.
    */
   explicit GPMFMetadataExtractor(
     const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager, size_t width, size_t height,
-    bool isStillImage, const AVFormatContext* avFormatContext, const size_t videoStreamIndex);
+    const AVFormatContext* avFormatContext, int priority);
   ~GPMFMetadataExtractor() override;
 
   std::string getName() const override;
   int getPriority() const override;
-  cras::optional<double> getCropFactor() override;
-  cras::optional<std::pair<double, double>> getSensorSizeMM() override;
-  cras::optional<double> getFocalLengthMM() override;
-  cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> getDistortion() override;
-  cras::optional<std::string> getCameraSerialNumber() override;
+
   cras::optional<std::string> getCameraMake() override;
   cras::optional<std::string> getCameraModel() override;
+  cras::optional<std::string> getCameraSerialNumber() override;
   cras::optional<std::string> getLensMake() override;
   cras::optional<std::string> getLensModel() override;
-  cras::optional<int> getRotation() override;
   cras::optional<ros::Time> getCreationTime() override;
+
+  cras::optional<double> getCropFactor() override;
+  cras::optional<std::pair<double, double>> getSensorSizeMM() override;
+  cras::optional<std::pair<DistortionType, Distortion>> getDistortion() override;
+  cras::optional<int> getRotation() override;
+  cras::optional<double> getFocalLengthMM() override;
   cras::optional<double> getFocalLength35MM() override;
   cras::optional<double> getFocalLengthPx() override;
-  cras::optional<CI::_K_type> getIntrinsicMatrix() override;
-  std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>> getGNSSPosition() override;
+  cras::optional<IntrinsicMatrix> getIntrinsicMatrix() override;
   cras::optional<compass_msgs::Azimuth> getAzimuth() override;
   cras::optional<std::pair<double, double>> getRollPitch() override;
+  GNSSFixAndDetail getGNSSPosition() override;
   cras::optional<geometry_msgs::Vector3> getAcceleration() override;
   cras::optional<sensor_msgs::MagneticField> getMagneticField() override;
   cras::optional<geometry_msgs::Vector3> getAngularVelocity() override;
   cras::optional<vision_msgs::Detection2DArray> getFaces() override;
+
+  void processTimedMetadata(const StreamTime& maxTime) override;
+  void seekTimedMetadata(const StreamTime& seekTime) override;
+  bool hasTimedMetadata() const override;
+  const std::unordered_map<TimedMetadataType, int>& supportedTimedMetadata() const override;
+  void prepareTimedMetadata(const std::vector<TimedMetadataType>& types) override;
+  void processPacket(const AVPacket* packet) override;
 
 private:
   std::unique_ptr<GPMFMetadataPrivate> data;  //!< PIMPL
@@ -78,7 +84,7 @@ private:
 /**
  * \brief Plugin for instantiating GPMFMetadataExtractor.
  */
-struct GPMFMetadataExtractorPlugin : MetadataExtractorPlugin
+struct GPMFMetadataExtractorPlugin final : MetadataExtractorPlugin
 {
   MetadataExtractor::Ptr getExtractor(const MetadataExtractorParams& params) override;
 };

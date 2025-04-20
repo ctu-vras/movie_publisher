@@ -324,7 +324,7 @@ cras::optional<double> LensfunMetadataExtractor::getFocalLengthMM()
   return cras::nullopt;
 }
 
-cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> LensfunMetadataExtractor::getDistortion()
+cras::optional<std::pair<DistortionType, Distortion>> LensfunMetadataExtractor::getDistortion()
 {
   const auto manager = this->data->manager.lock();
   if (manager == nullptr)
@@ -445,15 +445,16 @@ cras::optional<std::pair<CI::_distortion_model_type, CI::_D_type>> LensfunMetada
 
 MetadataExtractor::Ptr LensfunMetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
-  if (params.log == nullptr || params.manager.lock() == nullptr || params.width == 0 || params.height == 0)
+  if (params.log == nullptr || params.manager.lock() == nullptr ||
+      params.info.width() == 0 || params.info.height() == 0)
     return nullptr;
 
   std::string extraDb;
-  if (params.params->hasParam("lensfun_extra_db"))
-    extraDb = params.params->getParam("lensfun_extra_db", std::string{});
+  if (params.config.rosParams()->hasParam("lensfun_extra_db"))
+    extraDb = params.config.rosParams()->getParam("lensfun_extra_db", std::string{});
 
   return std::make_shared<LensfunMetadataExtractor>(
-    params.log, params.manager, params.width, params.height, params.isStillImage, extraDb);
+    params.log, params.manager, params.info.width(), params.info.height(), params.info.isStillImage(), extraDb);
 }
 
 }

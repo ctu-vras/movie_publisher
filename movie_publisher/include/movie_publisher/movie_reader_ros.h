@@ -65,8 +65,8 @@ class MovieReaderRos : public MovieReader
 public:
   MovieReaderRos(const cras::LogHelperPtr& log, const cras::BoundParamHelperPtr& params);
 
-  cras::expected<void, std::string> open(const std::string& filename, TimestampSource timestampSource) override;
-  cras::expected<void, std::string> open(const std::string& filename) override;
+  cras::expected<MoviePtr, std::string> open(const std::string& filename, const MovieOpenConfig& config) override;
+  cras::expected<MovieOpenConfig, std::string> createDefaultConfig() const override;
 
   /**
    * \brief Add a variable that will be resolved when parsing timestamp_offset.
@@ -76,36 +76,10 @@ public:
    */
   void addTimestampOffsetVar(const std::string& var, double val);
 
-  /**
-   * \brief Start time (relative to movie start).
-   */
-  virtual ros::Time getStart() const;
-
-  /**
-   * \brief End time (relative to movie start).
-   */
-  virtual ros::Time getEnd() const;
-
-  /**
-   * \brief Geometrical frame_id.
-   */
-  virtual std::string getFrameId() const;
-
-  /**
-   * \brief Optical frame_id.
-   */
-  virtual std::string getOpticalFrameId() const;
-
 protected:
   cras::BoundParamHelperPtr params;  //!< ROS parameters configuring the movie reader.
   //! Extra variables to resolve in the timestamp_offset expression.
   std::unordered_map<std::string, double> timestampOffsetVars;
-
-  ros::Time start;  //!< Start time (relative to movie start).
-  ros::Time end;  //!< End time (relative to movie start).
-
-  std::string frameId;  //!< Geometrical frame_id.
-  std::string opticalFrameId;  //!< Optical frame_id.
 };
 
 }

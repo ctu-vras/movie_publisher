@@ -18,6 +18,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <exec_depend>camera_info_manager_metadata_extractor</exec_depend>
+  <exec_depend>gpmf_metadata_extractor</exec_depend>
   <exec_depend>lensfun_metadata_extractor</exec_depend>
   <exec_depend>libexif_metadata_extractor</exec_depend>
 

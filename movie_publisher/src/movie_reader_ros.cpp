@@ -20,43 +20,63 @@
 #include <ros/duration.h>
 #include <ros/time.h>
 
+namespace cras
+{
+DEFINE_CONVERTING_GET_PARAM_WITH_CONSTRUCTOR(::movie_publisher::StreamTime, double, "s")
+DEFINE_CONVERTING_GET_PARAM_WITH_CONSTRUCTOR(::movie_publisher::StreamDuration, double, "s")
+}
+
 namespace movie_publisher
 {
 MovieReaderRos::MovieReaderRos(const cras::LogHelperPtr& log, const cras::BoundParamHelperPtr& params) :
   MovieReader(log, params), params(params)
 {
-  this->setNumThreads(params->getParam("num_decoder_threads", 1_sz));
+}
 
-  this->setAllowYUVFallback(params->getParam("allow_yuv_fallback", false));
+cras::expected<MovieOpenConfig, std::string> MovieReaderRos::createDefaultConfig() const
+{
+  auto maybeConfig = MovieReader::createDefaultConfig();
+  if (!maybeConfig.has_value())
+    return cras::make_unexpected(maybeConfig.error());
+
+  auto config = *maybeConfig;
+
+  auto options = cras::GetParamConvertingOptions<TimestampSource, std::string>(
+    &timestampSourceToStr, &parseTimestampSource);
+  options.throwIfConvertFails = true;
+  const auto timestampSource = this->params->getParam<TimestampSource, std::string>(
+    "timestamp_source", TimestampSource::FromMetadata, "", options);
+  if (auto result = config.setTimestampSource(timestampSource); !result.has_value())
+    return cras::make_unexpected(result.error());
+
+  if (auto result = config.setNumThreads(params->getParam("num_decoder_threads", 1_sz)); !result.has_value())
+    return cras::make_unexpected(result.error());
+
+  if (auto result = config.setAllowYUVFallback(params->getParam("allow_yuv_fallback", false)); !result.has_value())
+    return cras::make_unexpected(result.error());
   if (params->hasParam("default_encoding"))
-    this->setDefaultEncoding(params->getParam<std::string>("default_encoding", cras::nullopt));
+  {
+    auto result = config.setDefaultEncoding(params->getParam<std::string>("default_encoding", cras::nullopt));
+    if (!result.has_value())
+      return cras::make_unexpected(result.error());
+  }
   if (params->hasParam("encoding"))
-    this->forceEncoding(params->getParam<std::string>("encoding", cras::nullopt));
+  {
+    auto result = config.setForceEncoding(params->getParam<std::string>("encoding", cras::nullopt));
+    if (!result.has_value())
+      return cras::make_unexpected(result.error());
+  }
 
-  this->frameId = params->getParam("frame_id", "");
-  this->opticalFrameId = params->getParam(
-    "optical_frame_id", this->frameId.empty() ? "" : this->frameId + "_optical_frame");
-  this->setFrameId(this->frameId, this->opticalFrameId);
-}
+  const auto frameId = params->getParam("frame_id", "");
+  if (auto result = config.setFrameId(frameId); !result.has_value())
+    return cras::make_unexpected(result.error());
 
-ros::Time MovieReaderRos::getStart() const
-{
-  return this->start;
-}
+  const auto opticalFrameId = params->getParam(
+    "optical_frame_id", frameId.empty() ? "" : frameId + "_optical_frame");
+  if (auto result = config.setOpticalFrameId(opticalFrameId); !result.has_value())
+    return cras::make_unexpected(result.error());
 
-ros::Time MovieReaderRos::getEnd() const
-{
-  return this->end;
-}
-
-std::string MovieReaderRos::getFrameId() const
-{
-  return this->frameId;
-}
-
-std::string MovieReaderRos::getOpticalFrameId() const
-{
-  return this->opticalFrameId;
+  return config;
 }
 
 void MovieReaderRos::addTimestampOffsetVar(const std::string& var, const double val)
@@ -64,81 +84,45 @@ void MovieReaderRos::addTimestampOffsetVar(const std::string& var, const double 
   this->timestampOffsetVars[var] = val;
 }
 
-cras::expected<void, std::string> MovieReaderRos::open(const std::string& filename)
+cras::expected<MoviePtr, std::string> MovieReaderRos::open(const std::string& filename, const MovieOpenConfig& config)
 {
-  auto options = cras::GetParamConvertingOptions<MovieReader::TimestampSource, std::string>(
-    &timestampSourceToStr, &parseTimestampSource);
-  options.throwIfConvertFails = true;
-  const auto timestampSource = this->params->getParam<MovieReader::TimestampSource, std::string>(
-    "timestamp_source", MovieReader::TimestampSource::FromMetadata, "", options);
+  auto maybeMovie = MovieReader::open(filename, config);
+  if (!maybeMovie.has_value())
+    return maybeMovie;
 
-  return this->open(filename, timestampSource);
-}
+  const auto& movie = *maybeMovie;
 
-cras::expected<void, std::string> MovieReaderRos::open(
-  const std::string& filename, const TimestampSource timestampSource)
-{
-  auto result = MovieReader::open(filename, timestampSource);
-  if (!result.has_value())
-    return result;
+  const auto timeOptions = cras::GetParamConvertingOptions<StreamTime, double>(
+    cras::ParamToStringFn<StreamTime>::to_string, &parseTimeParam<StreamTime>);
+  const auto durationOptions = cras::GetParamConvertingOptions<StreamDuration, double>(
+    cras::ParamToStringFn<StreamDuration>::to_string, &parseTimeParam<StreamDuration>);
 
-  const auto timeOptions = cras::GetParamConvertingOptions<ros::Time, double>(
-    cras::ParamToStringFn<ros::Time>::to_string, &parseTimeParam<ros::Time>);
-  const auto durationOptions = cras::GetParamConvertingOptions<ros::Duration, double>(
-    cras::ParamToStringFn<ros::Duration>::to_string, &parseTimeParam<ros::Duration>);
-
-  cras::optional<ros::Time> start;
+  cras::optional<StreamTime> start;
   if (this->params->hasParam("start"))
-    start = this->params->getParamVerbose<ros::Time>("start", cras::nullopt, "s", timeOptions);
+    start = this->params->getParamVerbose<StreamTime>("start", cras::nullopt, "s", timeOptions);
 
-  cras::optional<ros::Time> end;
+  cras::optional<StreamTime> end;
   if (this->params->hasParam("end"))
-    end = this->params->getParamVerbose<ros::Time>("end", cras::nullopt, "s", timeOptions);
+    end = this->params->getParamVerbose<StreamTime>("end", cras::nullopt, "s", timeOptions);
 
-  cras::optional<ros::Duration> duration;
+  cras::optional<StreamDuration> duration;
   if (this->params->hasParam("duration"))
-    duration = this->params->getParamVerbose<ros::Duration>("duration", cras::nullopt, "s", durationOptions);
+    duration = this->params->getParamVerbose<StreamDuration>("duration", cras::nullopt, "s", durationOptions);
 
-  if (start.has_value() && end.has_value() && duration.has_value())
-    return cras::make_unexpected("At least one of ~start, ~end and ~duration parameters must remain unset.");
+  const auto subclipResult = movie->setSubClip(start, end, duration);
+  if (!subclipResult.has_value())
+    return cras::make_unexpected(subclipResult.error());
 
-  if (
-    (end && start && *end <= *start) ||
-    (duration && *duration <= ros::Duration{}) ||
-    (duration && *duration > this->getDuration()) ||
-    (start && duration && (*start + *duration) > (ros::Time{} + this->getDuration())) ||
-    (end && duration && (*end < (ros::Time{} + *duration))))
-  {
-    return cras::make_unexpected(
-      "The provided combination of ~start, ~end and ~duration is not consistent with the movie file.");
-  }
+  this->timestampOffsetVars["metadata_start"] = movie->info().metadataStartTime().toSec();
 
-  this->start = {0, 0};
-  this->end = {0, 0};
-
-  if (start)
-    this->start = *start;
-  if (end)
-    this->end = *end;
-
-  if (duration)
-  {
-    if (start)
-      this->end = *start + *duration;
-    else if (end)
-      this->start = *end - *duration;
-    else
-      this->end = this->start + *duration;
-  }
-
-  this->timestampOffsetVars["metadata_start"] = this->getMetadataStartTime().toSec();
   auto offsetOptions = cras::GetParamOptions<ros::Duration>{};
   offsetOptions.toParam = cras::bind_front(&parseTimestampOffset, this->timestampOffsetVars);
   const auto stampOffset = this->params->getParamVerbose<ros::Duration>(
     "timestamp_offset", ros::Duration{}, "", offsetOptions);
-  this->setTimestampOffset(stampOffset);
+  if (!stampOffset.value.isZero())
+    movie->setTimestampOffset(stampOffset);
 
-  return result;
+  return movie;
 }
 
 }

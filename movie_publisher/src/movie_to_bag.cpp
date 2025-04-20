@@ -35,30 +35,138 @@ namespace fs = CXX_FILESYSTEM_NAMESPACE;
 namespace movie_publisher
 {
 
-MovieToBag::MovieToBag(const cras::LogHelperPtr& log) : cras::NodeWithOptionalMaster(log), MovieProcessorBase(log)
+MovieToBag::MovieToBag(const cras::LogHelperPtr& log) : cras::NodeWithOptionalMaster(log)
 {
 }
 
 std::unique_ptr<MovieReaderRos> MovieToBag::createReader(const cras::BoundParamHelperPtr& params)
 {
-  auto reader = MovieProcessorBase::createReader(params);
-
-  const auto bagView = std::make_shared<rosbag::View>(*this->bag);
-  if (bagView->size() > 0)
-  {
-    reader->addTimestampOffsetVar("bag_start", bagView->getBeginTime().toSec());
-    reader->addTimestampOffsetVar("bag_end", bagView->getEndTime().toSec());
-    reader->addTimestampOffsetVar("bag_duration", (bagView->getEndTime() - bagView->getBeginTime()).toSec());
-  }
-
-  return reader;
+  return std::make_unique<MovieReaderRos>(this->log, params);
 }
 
 cras::expected<void, std::string> MovieToBag::open(
   const std::string& bagFilename, const std::string& transport, const std::string& movieFilename,
   const cras::BoundParamHelperPtr& params)
 {
-  this->transport = transport;
+  if (this->movieReader == nullptr)
+    this->movieReader = std::move(this->createReader(params));
+
+  this->metadataProcessor = this->createMetadataProcessor(bagFilename, transport, params);
+  this->metadataProcessor->addTimestampOffsetVars(*this->movieReader);
+  auto maybeConfig = this->movieReader->createDefaultConfig();
+  if (!maybeConfig.has_value())
+    return cras::make_unexpected(maybeConfig.error());
+
+  auto config = *maybeConfig;
+  config.metadataProcessors().push_back(this->metadataProcessor);
+
+  const auto maybeMovie = this->movieReader->open(movieFilename, config);
+  if (!maybeMovie.has_value())
+  {
+    return cras::make_unexpected(cras::format("Failed to open movie file '%s' due to the following error: %s",
+      movieFilename.c_str(), maybeMovie.error().c_str()));
+  }
+  this->movie = *maybeMovie;
+
+  return {};
+}
+
+cras::expected<void, std::string> MovieToBag::run()
+{
+  while (this->ok())
+  {
+    const auto maybePtsAndImg = this->movie->nextFrame();
+    if (!maybePtsAndImg.has_value() || std::get<1>(*maybePtsAndImg) == nullptr)
+    {
+      if (!maybePtsAndImg.has_value())
+      {
+        return cras::make_unexpected(cras::format(
+          "Reading the movie has failed with the following error: %s Stopped conversion.",
+          maybePtsAndImg.error().c_str()));
+      }
+      break;
+    }
+
+    const auto playbackState = std::get<0>(*maybePtsAndImg);
+    const auto& subclipEnd = this->movie->info().subclipEnd();
+    if (!subclipEnd.isZero() && playbackState.streamTime() > subclipEnd)
+      break;
+  }
+
+  CRAS_INFO("Reached end of movie.");
+
+  return {};
+}
+
+std::string MovieToBagMetadataProcessor::getImageTopic() const
+{
+  return this->resolveName(this->transport == "raw" ? this->topic : (this->topic + "/" + this->transport));
+}
+
+std::string MovieToBagMetadataProcessor::getCameraInfoTopic() const
+{
+  return this->getPrefixedTopic("camera_info");
+}
+
+std::string MovieToBagMetadataProcessor::getAzimuthTopic() const
+{
+  return this->getPrefixedTopic("azimuth");
+}
+
+std::string MovieToBagMetadataProcessor::getMagneticFieldTopic() const
+{
+  return this->getPrefixedTopic("imu/mag");
+}
+
+std::string MovieToBagMetadataProcessor::getNavSatFixTopic() const
+{
+  return this->getPrefixedTopic("fix");
+}
+
+std::string MovieToBagMetadataProcessor::getGpsTopic() const
+{
+  return this->getPrefixedTopic("fix_detail");
+}
+
+std::string MovieToBagMetadataProcessor::getImuTopic() const
+{
+  return this->getPrefixedTopic("imu");
+}
+
+std::string MovieToBagMetadataProcessor::getTfTopic() const
+{
+  return this->resolveName("/tf");
+}
+
+std::string MovieToBagMetadataProcessor::getStaticTfTopic() const
+{
+  return this->resolveName("/tf_static");
+}
+
+std::string MovieToBagMetadataProcessor::getFacesTopic() const
+{
+  return this->getPrefixedTopic("faces");
+}
+
+std::string MovieToBagMetadataProcessor::getPrefixedTopic(const std::string& topicName) const
+{
+  return this->resolveName(ros::names::append(this->topic, topicName));
+}
+
+std::shared_ptr<MovieToBagMetadataProcessor> MovieToBag::createMetadataProcessor(const std::string& bagFilename,
+  const std::string& transport, const cras::BoundParamHelperPtr& params)
+{
+  return std::make_shared<MovieToBagMetadataProcessor>(this->log, bagFilename, transport,
+    [this](const std::string& name) {return this->resolveName(name);}, params);
+}
+
+MovieToBagMetadataProcessor::MovieToBagMetadataProcessor(
+  const cras::LogHelperPtr& log, const std::string& bagFilename, const std::string& transport,
+  const std::function<std::string(const std::string&)>& resolveName, const cras::BoundParamHelperPtr& params)
+  : cras::HasLogger(log), transport(transport), resolveName(resolveName)
+{
+  this->imageCodecs = std::make_unique<image_transport_codecs::ImageTransportCodecs>(log);
+  this->topic = params->getParam("topic", "movie");
 
   const auto bagDir = fs::path(bagFilename).parent_path();
   try
@@ -81,126 +189,20 @@ cras::expected<void, std::string> MovieToBag::open(
     CRAS_INFO("Overwriting bag file %s", fs::canonical(bagFilename).c_str());
 
   this->bag = std::make_unique<rosbag::Bag>(bagFilename, bagMode | rosbag::BagMode::Read);
+}
 
-  this->topic = params->getParam("topic", "movie");
-
-  const auto openResult = MovieProcessorBase::open(movieFilename, params);
-  if (!openResult.has_value())
+void MovieToBagMetadataProcessor::addTimestampOffsetVars(MovieReaderRos& reader) const
+{
+  const auto bagView = std::make_shared<rosbag::View>(*this->bag);
+  if (bagView->size() > 0)
   {
-    return cras::make_unexpected(cras::format("Failed to open movie file '%s' due to the following error: %s",
-      movieFilename.c_str(), openResult.error().c_str()));
+    reader.addTimestampOffsetVar("bag_start", bagView->getBeginTime().toSec());
+    reader.addTimestampOffsetVar("bag_end", bagView->getEndTime().toSec());
+    reader.addTimestampOffsetVar("bag_duration", (bagView->getEndTime() - bagView->getBeginTime()).toSec());
   }
-
-  this->imageCodecs = std::make_unique<image_transport_codecs::ImageTransportCodecs>(MovieProcessorBase::log);
-
-  return {};
 }
 
-cras::expected<void, std::string> MovieToBag::run()
-{
-  const auto& opticalTfMsg = this->reader->getOpticalFrameTF();
-  if (opticalTfMsg.has_value() && !this->reader->getFrameId().empty() && !this->reader->getOpticalFrameId().empty())
-  {
-    this->lastOpticalTf = opticalTfMsg->transform;
-    this->processOpticalTf(*opticalTfMsg);
-  }
-
-  while (this->ok())
-  {
-    const auto maybePtsAndImg = this->reader->nextFrame();
-    if (!maybePtsAndImg.has_value() || std::get<1>(*maybePtsAndImg) == nullptr)
-    {
-      if (!maybePtsAndImg.has_value())
-      {
-        return cras::make_unexpected(cras::format(
-          "Reading the movie has failed with the following error: %s Stopped conversion.",
-          maybePtsAndImg.error().c_str()));
-      }
-      break;
-    }
-
-    const auto pts = std::get<0>(*maybePtsAndImg);
-    if (!this->reader->getEnd().isZero() && pts > this->reader->getEnd())
-      break;
-
-    const auto img = std::get<1>(*maybePtsAndImg);
-
-    const auto processResult = this->processFrame(img, pts);
-    if (!processResult.has_value())
-    {
-      CRAS_DEBUG("Failed processing frame %zu/%zu: %s",
-        frameNum, this->reader->getNumFrames(), processResult.error().c_str());
-      CRAS_WARN_THROTTLE(1.0, "Failed processing frame %zu/%zu: %s",
-        frameNum, this->reader->getNumFrames(), processResult.error().c_str());
-    }
-  }
-
-  CRAS_INFO("Reached end of movie.");
-
-  return {};
-}
-
-cras::LogHelperConstPtr MovieToBag::getCrasLogger() const
-{
-  return MovieProcessorBase::getCrasLogger();
-}
-
-std::string MovieToBag::getImageTopic() const
-{
-  return this->resolveName(this->transport == "raw" ? this->topic : (this->topic + "/" + this->transport));
-}
-
-std::string MovieToBag::getCameraInfoTopic() const
-{
-  return this->getPrefixedTopic("camera_info");
-}
-
-std::string MovieToBag::getAzimuthTopic() const
-{
-  return this->getPrefixedTopic("azimuth");
-}
-
-std::string MovieToBag::getMagneticFieldTopic() const
-{
-  return this->getPrefixedTopic("imu/mag");
-}
-
-std::string MovieToBag::getNavSatFixTopic() const
-{
-  return this->getPrefixedTopic("fix");
-}
-
-std::string MovieToBag::getGpsTopic() const
-{
-  return this->getPrefixedTopic("fix_detail");
-}
-
-std::string MovieToBag::getImuTopic() const
-{
-  return this->getPrefixedTopic("imu");
-}
-
-std::string MovieToBag::getTfTopic() const
-{
-  return this->resolveName("/tf");
-}
-
-std::string MovieToBag::getStaticTfTopic() const
-{
-  return this->resolveName("/tf_static");
-}
-
-std::string MovieToBag::getFacesTopic() const
-{
-  return this->resolveName("faces");
-}
-
-std::string MovieToBag::getPrefixedTopic(const std::string& topicName) const
-{
-  return this->resolveName(ros::names::append(this->topic, topicName));
-}
-
-cras::expected<void, std::string> MovieToBag::processImage(
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processImage(
   const sensor_msgs::ImageConstPtr& image, const cras::optional<sensor_msgs::CameraInfo>& cameraInfoMsg)
 {
   if (image == nullptr)
@@ -234,7 +236,7 @@ cras::expected<void, std::string> MovieToBag::processImage(
   return {};
 }
 
-void MovieToBag::processAzimuth(const compass_msgs::Azimuth& azimuthMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processAzimuth(const compass_msgs::Azimuth& azimuthMsg)
 {
   try
   {
@@ -242,11 +244,13 @@ void MovieToBag::processAzimuth(const compass_msgs::Azimuth& azimuthMsg)
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save azimuth info into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save azimuth info into bagfile: %s", e.what()));
   }
+  return {};
 }
 
-void MovieToBag::processMagneticField(const sensor_msgs::MagneticField& magneticFieldMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processMagneticField(
+  const sensor_msgs::MagneticField& magneticFieldMsg)
 {
   try
   {
@@ -254,11 +258,13 @@ void MovieToBag::processMagneticField(const sensor_msgs::MagneticField& magnetic
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save magnetic field info into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save magnetic field info into bagfile: %s", e.what()));
   }
+  return {};
 }
 
-void MovieToBag::processNavSatFix(const sensor_msgs::NavSatFix& navSatFixMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processNavSatFix(
+  const sensor_msgs::NavSatFix& navSatFixMsg)
 {
   try
   {
@@ -266,11 +272,12 @@ void MovieToBag::processNavSatFix(const sensor_msgs::NavSatFix& navSatFixMsg)
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save fix into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save fix into bagfile: %s", e.what()));
   }
+  return {};
 }
 
-void MovieToBag::processGps(const gps_common::GPSFix& gpsMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processGps(const gps_common::GPSFix& gpsMsg)
 {
   try
   {
@@ -278,11 +285,12 @@ void MovieToBag::processGps(const gps_common::GPSFix& gpsMsg)
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save fix details into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save fix details into bagfile: %s", e.what()));
   }
+  return {};
 }
 
-void MovieToBag::processImu(const sensor_msgs::Imu& imuMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processImu(const sensor_msgs::Imu& imuMsg)
 {
   try
   {
@@ -290,11 +298,13 @@ void MovieToBag::processImu(const sensor_msgs::Imu& imuMsg)
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save IMU into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save IMU into bagfile: %s", e.what()));
   }
+  return {};
 }
 
-void MovieToBag::processZeroRollPitchTf(const geometry_msgs::TransformStamped& zeroRollPitchTfMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processZeroRollPitchTf(
+  const geometry_msgs::TransformStamped& zeroRollPitchTfMsg)
 {
   tf2_msgs::TFMessage msg;
   msg.transforms.push_back(zeroRollPitchTfMsg);
@@ -304,25 +314,31 @@ void MovieToBag::processZeroRollPitchTf(const geometry_msgs::TransformStamped& z
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save TF into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save TF into bagfile: %s", e.what()));
   }
+  return {};
 }
 
-void MovieToBag::processOpticalTf(const geometry_msgs::TransformStamped& opticalTfMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processOpticalTf(
+  const geometry_msgs::TransformStamped& opticalTfMsg)
 {
   tf2_msgs::TFMessage msg;
   msg.transforms.push_back(opticalTfMsg);
   try
   {
-    this->bag->write(this->getStaticTfTopic(), opticalTfMsg.header.stamp, msg);
+    auto connectionHeader = boost::make_shared<ros::M_string>();
+    (*connectionHeader)["latching"] = "1";
+    this->bag->write(this->getStaticTfTopic(), opticalTfMsg.header.stamp, msg, connectionHeader);
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save static TF into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save static TF into bagfile: %s", e.what()));
   }
+  return {};
 }
 
-void MovieToBag::processFaces(const vision_msgs::Detection2DArray& facesMsg)
+cras::expected<void, std::string> MovieToBagMetadataProcessor::processFaces(
+  const vision_msgs::Detection2DArray& facesMsg)
 {
   try
   {
@@ -330,7 +346,8 @@ void MovieToBag::processFaces(const vision_msgs::Detection2DArray& facesMsg)
   }
   catch (const rosbag::BagIOException& e)
   {
-    CRAS_ERROR_THROTTLE(1.0, cras::format("Failed to save detected faces info into bagfile: %s", e.what()));
+    return cras::make_unexpected(cras::format("Failed to save detected faces info into bagfile: %s", e.what()));
   }
+  return {};
 }
 }
