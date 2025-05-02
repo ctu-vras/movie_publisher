@@ -12,6 +12,15 @@ find_package(catkin REQUIRED COMPONENTS
   pluginlib
 )
 
+file(GLOB GPMF_SOURCES
+    src/gpmf_parser/*.c
+)
+
+# target_include_directories(${PROJECT_NAME}
+#     PRIVATE
+#     src/gpmf_parser  # GPMF headers
+# )
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBAVFORMAT libavformat REQUIRED IMPORTED_TARGET)
 
@@ -19,7 +28,7 @@ catkin_package()
 
 include_directories(${catkin_INCLUDE_DIRS})
 
-add_library(${PROJECT_NAME} src/GPMFMetadataExtractor.cpp)
+add_library(${PROJECT_NAME} ${GPMF_SOURCES} src/GPMFMetadataExtractor.cpp )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE PkgConfig::LIBAVFORMAT)
 

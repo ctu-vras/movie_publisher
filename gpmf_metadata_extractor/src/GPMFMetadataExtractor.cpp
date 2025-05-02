@@ -19,6 +19,9 @@ extern "C"
 #include <cras_cpp_common/type_utils.hpp>
 #include <pluginlib/class_list_macros.h>
 
+#include "gpmf_parser/GPMF_parser.h"
+#include "gpmf_parser/GPMF_utils.h"
+
 namespace movie_publisher
 {
 
@@ -400,6 +403,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
 
   // TODO read metadata from packet and store them in this->buffer until processTimedMetadata picks them up.
   //      static metadata should go directly to this->lastMetadata
+  // pointer to mp4 container metadata
 
   this->lastMetadata.cameraMake = "GoPro";  // TODO hard-code to "GoPro" ?
   this->lastMetadata.cameraModel = "Hero 13 Black";  // TODO MINF
@@ -407,6 +411,209 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
   this->lastMetadata.lensMake = "GoPro";  // TODO hard-code to "GoPro" ?
   this->lastMetadata.lensModel = "lens";  // TODO LINF???
 
+  // Initialize packet in parser
+  const auto time = packetTime + StreamDuration(0.01);
+
+  uint32_t* payload = reinterpret_cast<uint32_t*>(packet->data);
+  uint32_t payloadsize = packet->size;
+  GPMF_stream g_stream;
+  uint32_t samples, elements, buffersize, faceLoadCount(0);
+  uint64_t lastTimestamp_us(0);
+  if(GPMF_OK != GPMF_Init(&g_stream, payload, payloadsize))
+  {
+    // TODO THROW CRAS ERROR UNABLE TO INITIALIZE PACKET
+  }
+
+  do
+  {
+    switch(GPMF_Key(&g_stream))
+    {
+      case STR2FOURCC("STMP"):
+      {
+        if (GPMF_OK != GPMF_FormattedData(&g_stream, &lastTimestamp_us, sizeof(uint64_t), 0, 1)) {
+          // TODO THROW CRAS ERROR SCALING GPMD FAILED
+        }
+      }
+      case STR2FOURCC("ACCL"):
+      {
+        samples = GPMF_Repeat(&g_stream);
+        elements = GPMF_ElementsInStruct(&g_stream);
+        buffersize = samples * elements;
+        std::vector<double> tmp_buf(buffersize);
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+          // TODO THROW CRAS ERROR SCALING GPMD FAILED
+        }
+        
+        const uint64_t entry_offset_us = 1'000'000 / 200; // calculate offset between accl entries based on the frequency, in microseconds
+        for (size_t i = 0; i < samples; i++)
+        {
+          TimedMetadata<geometry_msgs::Vector3> msg;
+          msg.stamp = StreamTime((lastTimestamp_us + faceLoadCount * entry_offset_us) / 10e6);
+          msg.value.z = tmp_buf[i];
+          msg.value.x = tmp_buf[i + 1];
+          msg.value.y = tmp_buf[i + 2];
+          this->buffer.acceleration.emplace(msg); 
+        }
+        break;
+      }
+
+      case STR2FOURCC("GYRO"):
+      {
+        samples = GPMF_Repeat(&g_stream);
+        elements = GPMF_ElementsInStruct(&g_stream);
+        buffersize = samples * elements;
+        std::vector<double> tmp_buf(buffersize);
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+          // TODO THROW CRAS ERROR SCALING GPMD FAILED
+        }
+        
+        const uint64_t entry_offset_us = 1'000'000 / 200; // calculate offset between accl entries based on the frequency, in microseconds
+        for (size_t i = 0; i < samples; i++)
+        {
+          TimedMetadata<geometry_msgs::Vector3> msg;
+          msg.stamp = StreamTime((lastTimestamp_us + faceLoadCount * entry_offset_us) / 10e6);
+          msg.value.z = tmp_buf[i];
+          msg.value.x = tmp_buf[i + 1];
+          msg.value.y = tmp_buf[i + 2];
+          this->buffer.angularVelocity.emplace(msg); 
+        }
+        break;
+      }
+      
+      case STR2FOURCC("GPS9"):
+      {
+        samples = GPMF_Repeat(&g_stream);
+        elements = GPMF_ElementsInStruct(&g_stream);
+        buffersize = samples * elements;
+        std::vector<double> tmp_buf(buffersize);
+        
+        std::cout.flush();
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+          // TODO THROW CRAS ERROR SCALING GPMD FAILED
+        }
+        break;
+
+        const uint64_t entry_offset_us = 1'000'000 / 10; // calculate offset between accl entries based on the frequency, in microseconds
+        for(size_t i=0; i<samples; i++) {
+          double latitude = tmp_buf[i * elements];
+          double longitude = tmp_buf[i * elements + 1];
+          double altitude = tmp_buf[i * elements + 2];
+          double speed_2d = tmp_buf[i * elements + 3];
+          double speed_3d = tmp_buf[i * elements + 4];
+          uint64_t days_since_2000 = tmp_buf[i * elements + 5];
+          double seconds_since_midnight = tmp_buf[i * elements + 6];
+          double dop = tmp_buf[i * elements + 7];
+          uint64_t fix_type = tmp_buf[i * elements + 8];
+          
+          cras::optional<sensor_msgs::NavSatFix> navSatFix;
+          navSatFix.emplace();
+          navSatFix->latitude = latitude;
+          navSatFix->longitude = longitude;
+          navSatFix->altitude = altitude;
+
+          cras::optional<gps_common::GPSFix> gpsFix;
+          gpsFix.emplace();
+          gpsFix->latitude = latitude;
+          gpsFix->longitude = longitude;
+          gpsFix->altitude = altitude;
+          gpsFix->speed = speed_2d; // or 3d speed?
+          gpsFix->gdop = dop;
+          
+          StreamTime time = StreamTime((lastTimestamp_us + faceLoadCount * entry_offset_us) / 10e6);
+          TimedMetadata<std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>>> msg = {
+            time, std::make_pair(navSatFix, gpsFix)
+          };
+          this->buffer.fix.emplace(msg);
+        }
+      }
+      case STR2FOURCC("GRAV"):
+      {
+        samples = GPMF_Repeat(&g_stream);
+        elements = GPMF_ElementsInStruct(&g_stream);
+        buffersize = samples * elements;
+        std::vector<double> tmp_buf(buffersize);
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+          // TODO THROW CRAS ERROR SCALING GPMD FAILED
+        }
+        
+        // frequency GRAV = framerate
+        const uint64_t entry_offset_us = 1'000'000 / 24; // calculate offset between accl entries based on the frequency, in microseconds
+        for (size_t i = 0; i < samples; i++)
+        {
+          double gx = tmp_buf[i * elements];
+          double gy = tmp_buf[i * elements + 1];
+          double gz = tmp_buf[i * elements + 2];
+
+          TimedMetadata<std::pair<double, double>> msg;
+          msg.stamp = StreamTime((lastTimestamp_us + faceLoadCount * entry_offset_us) / 10e6);
+          // in radians
+          msg.value.first = atan2(gy, gz);  // roll
+          msg.value.second = atan2(-gx, sqrt(gy * gy + gz * gz)); // pitch
+          this->buffer.rollPitch.emplace(msg);
+        }
+        break;
+      }
+      case STR2FOURCC("FACE"):
+      {
+        samples = GPMF_Repeat(&g_stream);
+        elements = GPMF_ElementsInStruct(&g_stream);
+        buffersize = samples * elements;
+        std::vector<double> tmp_buf(buffersize);
+
+        if (!samples)
+        {
+          faceLoadCount++;
+          break;
+        }
+
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE))
+        {
+          // TODO THROW CRAS ERROR SCALING GPMD FAILED
+        }
+        
+        // frequency FACE ~ 10 / 12 depending on framerate on samples its 10
+        const uint64_t entry_offset_us = 1'000'000 / 10; // calculate offset between accl entries based on the frequency, in microseconds
+        for (size_t i = 0; i < samples; i++)
+        {
+          double x = tmp_buf[i * elements + 3] * this->width;
+          double y = tmp_buf[i * elements + 4] * this->height;
+          double w = tmp_buf[i * elements + 5] * this->width;
+          double h = tmp_buf[i * elements + 6] * this->height;
+
+          double center_x = x + w / 2.0f;
+          double center_y = y + h / 2.0f;
+
+          TimedMetadata<vision_msgs::Detection2DArray> msg;
+          msg.stamp = StreamTime((lastTimestamp_us + faceLoadCount * entry_offset_us) / 10e6);
+          // msg.value.header.stamp whats this ?
+          msg.value.detections.emplace_back();
+          msg.value.detections.back().bbox.center.x = center_x;
+          msg.value.detections.back().bbox.center.y = center_y;
+          msg.value.detections.back().bbox.size_x = w;
+          msg.value.detections.back().bbox.size_y = h; 
+
+          this->buffer.faces.emplace(msg);
+        }
+        faceLoadCount++;
+        break;
+      }
+      // both CORI and IORI are items with 4 elements
+      case STR2FOURCC("CORI"):
+      {
+        samples = GPMF_Repeat(&g_stream);
+        elements = GPMF_ElementsInStruct(&g_stream);
+      }
+      case STR2FOURCC("IORI"):
+      {
+        samples = GPMF_Repeat(&g_stream);
+        elements = GPMF_ElementsInStruct(&g_stream);
+      }
+      default: // if you don't know the Key you can skip to the next
+      break;
+    }
+  } while (GPMF_OK == GPMF_Next(&g_stream, GPMF_RECURSE_LEVELS));
+
+  
   // TODO This is a fake loop to generate some data
   for (size_t i = 0; i < 10; i++)
   {
@@ -443,7 +650,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       TimedMetadata<std::pair<DistortionType, Distortion>> msg;
       msg.stamp = time;
       msg.value.first = "test";
-      msg.value.second = {time.sec, time.nsec};
+      msg.value.second = {(double)time.sec, (double)time.nsec};
       this->buffer.distortion.emplace(msg);
     }
 
@@ -506,48 +713,6 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       this->buffer.azimuth.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::ROLL_PITCH) != req.end())
-    {
-      // TODO compute from GRAV (better case) or ACCL
-      TimedMetadata<std::pair<double, double>> msg;
-      msg.stamp = time;
-      msg.value.first = time.toRosTime().toSec();
-      this->buffer.rollPitch.emplace(msg);
-    }
-
-    if (req.empty() || req.find(TimedMetadataType::ACCELERATION) != req.end())
-    {
-      // TODO ACCL
-      TimedMetadata<geometry_msgs::Vector3> msg;
-      msg.stamp = time;
-      msg.value.x = time.toRosTime().sec;
-      msg.value.y = time.toRosTime().nsec;
-      msg.value.z = num;
-      this->buffer.acceleration.emplace(msg);
-    }
-
-    if (req.empty() || req.find(TimedMetadataType::GNSS_POSITION) != req.end())
-    {
-      // TODO GPS5+GPSU+GPSF+GPSP or GPS9
-      if (i == 0)
-      {
-        cras::optional<sensor_msgs::NavSatFix> navSatFix;
-        navSatFix.emplace();
-        navSatFix->latitude = time.toRosTime().sec;
-        navSatFix->longitude = time.toRosTime().nsec;
-        navSatFix->altitude = num;
-        cras::optional<gps_common::GPSFix> gpsFix;
-        gpsFix.emplace();
-        gpsFix->latitude = time.toRosTime().sec;
-        gpsFix->longitude = time.toRosTime().nsec;
-        gpsFix->altitude = num;
-        TimedMetadata<std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>>> msg = {
-          time, std::make_pair(navSatFix, gpsFix)
-        };
-        this->buffer.fix.emplace(msg);
-      }
-    }
-
     if (req.empty() || req.find(TimedMetadataType::MAGNETIC_FIELD) != req.end())
     {
       // TODO
@@ -559,30 +724,6 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       this->buffer.magneticField.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::ANGULAR_VELOCITY) != req.end())
-    {
-      // TODO
-      TimedMetadata<geometry_msgs::Vector3> msg;
-      msg.stamp = time;
-      msg.value.x = time.sec;
-      msg.value.y = time.nsec;
-      msg.value.z = num;
-      this->buffer.angularVelocity.emplace(msg);
-    }
-
-    if (req.empty() || req.find(TimedMetadataType::FACES) != req.end())
-    {
-      // TODO
-      TimedMetadata<vision_msgs::Detection2DArray> msg;
-      msg.stamp = time;
-      msg.value.header.stamp = time.toRosTime();
-      msg.value.detections.emplace_back();
-      msg.value.detections.back().header.stamp = time.toRosTime();
-      msg.value.detections.back().bbox.center.x = time.sec;
-      msg.value.detections.back().bbox.center.y = time.nsec;
-      msg.value.detections.back().bbox.size_x = num;
-      this->buffer.faces.emplace(msg);
-    }
   }
 }
 
