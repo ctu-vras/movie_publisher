@@ -5,6 +5,9 @@
 Changelog for package movie_publisher_plugins_nonfree
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.0.0 (2025-05-13)
 ------------------
 

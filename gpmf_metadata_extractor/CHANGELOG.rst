@@ -5,6 +5,11 @@
 Changelog for package gpmf_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fixed permissions
+* Contributors: Martin Pecka
+
 3.0.0 (2025-05-13)
 ------------------
 * Finished the refactor for timed metadata support.
