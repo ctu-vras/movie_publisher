@@ -14,14 +14,18 @@
 
 #include <cras_cpp_common/optional.hpp>
 #include <cras_cpp_common/string_utils.hpp>
-#define MAGIC_ENUM_USING_ALIAS_OPTIONAL template <typename T> using optional = cras::optional<T>;
-#include <magic_enum.hpp>
 #include <movie_publisher/metadata_type.h>
 #include <movie_publisher/movie_metadata_processor.h>
 #include <movie_publisher/movie_open_config.h>
 #include <movie_publisher/parsing_utils.h>
 #include <ros/duration.h>
+#include <ros/common.h>
 #include <sensor_msgs/image_encodings.h>
+
+#if ROS_VERSION_MINIMUM(1, 17, 0)
+#define MAGIC_ENUM_USING_ALIAS_OPTIONAL template <typename T> using optional = cras::optional<T>;
+#include <magic_enum.hpp>
+#endif
 
 namespace movie_publisher
 {
@@ -57,8 +61,38 @@ struct MovieOpenConfig::Impl
 
 MovieOpenConfig::MovieOpenConfig(const cras::BoundParamHelperPtr& rosParams) : data(new Impl())
 {
+#if ROS_VERSION_MINIMUM(1, 17, 0)
   const auto allMetadataTypes = magic_enum::enum_values<MetadataType>();
   this->data->metadataTypes.insert(allMetadataTypes.begin(), allMetadataTypes.end());
+#else
+  this->data->metadataTypes.insert(MetadataType::CAMERA_GENERAL_NAME);
+  this->data->metadataTypes.insert(MetadataType::CAMERA_UNIQUE_NAME);
+  this->data->metadataTypes.insert(MetadataType::CAMERA_SERIAL_NUMBER);
+  this->data->metadataTypes.insert(MetadataType::CAMERA_MAKE);
+  this->data->metadataTypes.insert(MetadataType::CAMERA_MODEL);
+  this->data->metadataTypes.insert(MetadataType::LENS_MAKE);
+  this->data->metadataTypes.insert(MetadataType::LENS_MODEL);
+  this->data->metadataTypes.insert(MetadataType::CREATION_TIME);
+  this->data->metadataTypes.insert(MetadataType::ROTATION);
+  this->data->metadataTypes.insert(MetadataType::CROP_FACTOR);
+  this->data->metadataTypes.insert(MetadataType::SENSOR_SIZE_MM);
+  this->data->metadataTypes.insert(MetadataType::FOCAL_LENGTH_35MM);
+  this->data->metadataTypes.insert(MetadataType::FOCAL_LENGTH_MM);
+  this->data->metadataTypes.insert(MetadataType::FOCAL_LENGTH_PX);
+  this->data->metadataTypes.insert(MetadataType::INTRINSIC_MATRIX);
+  this->data->metadataTypes.insert(MetadataType::DISTORTION);
+  this->data->metadataTypes.insert(MetadataType::GNSS_POSITION);
+  this->data->metadataTypes.insert(MetadataType::AZIMUTH);
+  this->data->metadataTypes.insert(MetadataType::MAGNETIC_FIELD);
+  this->data->metadataTypes.insert(MetadataType::ROLL_PITCH);
+  this->data->metadataTypes.insert(MetadataType::ACCELERATION);
+  this->data->metadataTypes.insert(MetadataType::ANGULAR_VELOCITY);
+  this->data->metadataTypes.insert(MetadataType::FACES);
+  this->data->metadataTypes.insert(MetadataType::CAMERA_INFO);
+  this->data->metadataTypes.insert(MetadataType::IMU);
+  this->data->metadataTypes.insert(MetadataType::OPTICAL_FRAME_TF);
+  this->data->metadataTypes.insert(MetadataType::ZERO_ROLL_PITCH_TF);
+#endif
   this->data->rosParams = rosParams;
 }
 

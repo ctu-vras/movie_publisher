@@ -24,7 +24,7 @@
   <build_depend>image_geometry</build_depend>
   <build_depend>image_transport</build_depend>
   <build_depend>image_transport_codecs</build_depend>
-  <build_depend>magic_enum</build_depend>
+  <build_depend condition="$ROS_DISTRO &gt;= 'noetic'">magic_enum</build_depend>
   <build_depend>muparser</build_depend>
   <build_depend>nodelet</build_depend>
   <build_depend>rosbag</build_depend>

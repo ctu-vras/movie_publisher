@@ -21,8 +21,6 @@
 #include <cras_cpp_common/param_utils/bound_param_helper.hpp>
 #include <geometry_msgs/TransformStamped.h>
 #include <gps_common/GPSFix.h>
-#define MAGIC_ENUM_USING_ALIAS_OPTIONAL template <typename T> using optional = cras::optional<T>;
-#include <magic_enum.hpp>
 #include <movie_publisher/metadata_extractor.h>
 #include <movie_publisher/metadata_manager.h>
 #include <movie_publisher/movie.h>
@@ -30,6 +28,7 @@
 #include <movie_publisher/parsing_utils.h>
 #include <movie_publisher/types.h>
 #include <ros/assert.h>
+#include <ros/common.h>
 #include <ros/duration.h>
 #include <ros/time.h>
 #include <sensor_msgs/image_encodings.h>
@@ -57,6 +56,51 @@ extern "C" {
 #include <libavutil/parseutils.h>
 #include <libswscale/swscale.h>
 }
+
+#if ROS_VERSION_MINIMUM(1, 17, 0)
+#define MAGIC_ENUM_USING_ALIAS_OPTIONAL template <typename T> using optional = cras::optional<T>;
+#include <magic_enum.hpp>
+
+std::string enum_name(const movie_publisher::MetadataType type)
+{
+  return std::string(magic_enum::enum_name(type));
+}
+#else
+std::string enum_name(const movie_publisher::MetadataType type)
+{
+  switch (type)
+  {
+    case movie_publisher::MetadataType::CAMERA_GENERAL_NAME: return "CAMERA_GENERAL_NAME";
+    case movie_publisher::MetadataType::CAMERA_UNIQUE_NAME: return "CAMERA_UNIQUE_NAME";
+    case movie_publisher::MetadataType::CAMERA_SERIAL_NUMBER: return "CAMERA_SERIAL_NUMBER";
+    case movie_publisher::MetadataType::CAMERA_MAKE: return "CAMERA_MAKE";
+    case movie_publisher::MetadataType::CAMERA_MODEL: return "CAMERA_MODEL";
+    case movie_publisher::MetadataType::LENS_MAKE: return "LENS_MAKE";
+    case movie_publisher::MetadataType::LENS_MODEL: return "LENS_MODEL";
+    case movie_publisher::MetadataType::CREATION_TIME: return "CREATION_TIME";
+    case movie_publisher::MetadataType::ROTATION: return "ROTATION";
+    case movie_publisher::MetadataType::CROP_FACTOR: return "CROP_FACTOR";
+    case movie_publisher::MetadataType::SENSOR_SIZE_MM: return "SENSOR_SIZE_MM";
+    case movie_publisher::MetadataType::FOCAL_LENGTH_35MM: return "FOCAL_LENGTH_35MM";
+    case movie_publisher::MetadataType::FOCAL_LENGTH_MM: return "FOCAL_LENGTH_MM";
+    case movie_publisher::MetadataType::FOCAL_LENGTH_PX: return "FOCAL_LENGTH_PX";
+    case movie_publisher::MetadataType::INTRINSIC_MATRIX: return "INTRINSIC_MATRIX";
+    case movie_publisher::MetadataType::DISTORTION: return "DISTORTION";
+    case movie_publisher::MetadataType::GNSS_POSITION: return "GNSS_POSITION";
+    case movie_publisher::MetadataType::AZIMUTH: return "AZIMUTH";
+    case movie_publisher::MetadataType::MAGNETIC_FIELD: return "MAGNETIC_FIELD";
+    case movie_publisher::MetadataType::ROLL_PITCH: return "ROLL_PITCH";
+    case movie_publisher::MetadataType::ACCELERATION: return "ACCELERATION";
+    case movie_publisher::MetadataType::ANGULAR_VELOCITY: return "ANGULAR_VELOCITY";
+    case movie_publisher::MetadataType::FACES: return "FACES";
+    case movie_publisher::MetadataType::CAMERA_INFO: return "CAMERA_INFO";
+    case movie_publisher::MetadataType::IMU: return "IMU";
+    case movie_publisher::MetadataType::OPTICAL_FRAME_TF: return "OPTICAL_FRAME_TF";
+    case movie_publisher::MetadataType::ZERO_ROLL_PITCH_TF: return "ZERO_ROLL_PITCH_TF";
+    default: return "UNKNOWN";
+  }
+}
+#endif
 
 #ifdef av_err2str
 #undef av_err2str
@@ -475,7 +519,7 @@ void MoviePrivate::updateMetadata(const StreamTime& ptsTime)
       if (numProcessed > 0)
       {
         changed.insert(type);
-        CRAS_DEBUG_THROTTLE_NAMED(1.0, std::string("timed_metadata.") + std::string(magic_enum::enum_name(type)),
+        CRAS_DEBUG_THROTTLE_NAMED(1.0, std::string("timed_metadata.") + enum_name(type),
           "Produced %zu timed messages.", numProcessed);
       }
     }
@@ -492,7 +536,7 @@ void MoviePrivate::updateMetadata(const StreamTime& ptsTime)
       if (numProcessed > 0)
       {
         changed.insert(type);
-        CRAS_DEBUG_THROTTLE_NAMED(1.0, std::string("timed_metadata.") + std::string(magic_enum::enum_name(type)),
+        CRAS_DEBUG_THROTTLE_NAMED(1.0, std::string("timed_metadata.") + enum_name(type),
           "Produced %zu timed messages.", numProcessed);
       }
     }

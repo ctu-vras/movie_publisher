@@ -47,7 +47,7 @@ find_package(Filesystem REQUIRED COMPONENTS Final Experimental Boost)
 
 pkg_check_modules(MUPARSER muparser REQUIRED IMPORTED_TARGET)
 
-find_package(magic_enum CONFIG REQUIRED)
+find_package(magic_enum CONFIG)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
@@ -60,7 +60,10 @@ add_library(movie_reader_types
   src/parsing_utils.cpp
   src/types.cpp
 )
-target_link_libraries(movie_reader_types PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg magic_enum::magic_enum PkgConfig::MUPARSER)
+target_link_libraries(movie_reader_types PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg PkgConfig::MUPARSER)
+if (magic_enum_FOUND)
+  target_link_libraries(movie_reader_types PRIVATE magic_enum::magic_enum)
+endif ()
 
 add_library(movie_reader
   src/metadata/ExifBaseMetadataExtractor.cpp
@@ -71,7 +74,10 @@ add_library(movie_reader
   src/movie_reader.cpp
   src/movie_reader_ros.cpp
 )
-target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} movie_reader_types PRIVATE ffmpeg magic_enum::magic_enum std::filesystem)
+target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} movie_reader_types PRIVATE ffmpeg std::filesystem)
+if (magic_enum_FOUND)
+  target_link_libraries(movie_reader PRIVATE magic_enum::magic_enum)
+endif ()
 
 add_library(movie_reader_metadata_plugins
   src/metadata/FileMetadataExtractor.cpp
