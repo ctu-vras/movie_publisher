@@ -5,8 +5,8 @@
 Changelog for package movie_publisher_plugins_permissive
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2025-05-13)
+------------------
 * Big refactoring towards better handling of timed metadata.
 * Contributors: Martin Pecka
 

@@ -5,8 +5,8 @@
 Changelog for package camera_info_manager_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.0 (2025-05-13)
+------------------
 * Finished the refactor for timed metadata support.
 * Big refactoring towards better handling of timed metadata.
 * Contributors: Martin Pecka
