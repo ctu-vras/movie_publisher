@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: Copyright 2017 GoPro Inc (http://gopro.com/).
+
 /*! @file GPMF_parser.c
  * 
  *  @brief GPMF Parser library
