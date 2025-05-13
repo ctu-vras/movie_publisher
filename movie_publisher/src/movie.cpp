@@ -354,8 +354,9 @@ cras::expected<std::pair<MoviePlaybackState, sensor_msgs::ImageConstPtr>, std::s
 
       this->data->playbackState->setMovieStarted(true);
       this->data->playbackState->setStreamTime({tmpFrame->pts, timeBase});
-      this->data->playbackState->setSubclipTime(
-        StreamTime(this->data->playbackState->streamTime() - this->data->info->subclipStart()));
+      this->data->playbackState->setSubclipTime(StreamTime(std::max(
+        this->data->playbackState->streamTime() - this->data->info->subclipStart(),
+        StreamDuration(0, 0))));
 
       const AVRational framerateInv = av_inv_q(this->data->info->frameRate().av_q());
       this->data->playbackState->setFrameNum(av_rescale_q(tmpFrame->pts, timeBase, framerateInv));
