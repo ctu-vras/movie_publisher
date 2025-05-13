@@ -5,6 +5,15 @@
 Changelog for package gpmf_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Finished the refactor for timed metadata support.
+* Added simple extractor of dynamic metadata + gpmf_parser
+* Big refactoring towards better handling of timed metadata.
+* gpmf_metadata_extractor: Added more fields.
+* Added GPMF metadata extractor skeleton.
+* Contributors: Liamisko123, Martin Pecka
+
 2.0.3 (2025-02-27)
 ------------------
 

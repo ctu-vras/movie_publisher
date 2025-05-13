@@ -5,6 +5,12 @@
 Changelog for package lensfun_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Finished the refactor for timed metadata support.
+* Big refactoring towards better handling of timed metadata.
+* Contributors: Martin Pecka
+
 2.0.3 (2025-02-27)
 ------------------
 * Fixed build on armhf.
