@@ -9,7 +9,3 @@
     local-name: compass
     uri: https://github.com/ctu-vras/compass.git
     version: master
-- git:
-    local-name: magic_enum
-    uri: https://github.com/peci1/magic_enum.git
-    version: master
