@@ -25,6 +25,7 @@
 #include <magic_enum.hpp>
 #include <movie_publisher/metadata_extractor.h>
 #include <movie_publisher/metadata_manager.h>
+#include <movie_publisher/movie.h>
 #include <movie_publisher/movie_reader.h>
 #include <movie_publisher/parsing_utils.h>
 #include <movie_publisher/types.h>
@@ -33,9 +34,10 @@
 #include <ros/time.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <sensor_msgs/image_encodings.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
