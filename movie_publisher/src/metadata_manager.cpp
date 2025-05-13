@@ -8,6 +8,7 @@
  */
 
 #include <string>
+#include <unordered_set>
 #include <utility>
 
 #include <compass_msgs/Azimuth.h>
@@ -299,8 +300,22 @@ void MetadataManager::addExtractor(const std::shared_ptr<MetadataExtractor>& ext
 
 void MetadataManager::loadExtractorPlugins(const MetadataExtractorParams& params)
 {
+  const bool hasAllowed = this->config.rosParams()->hasParam("allowed_extractors");
+  const auto allowed = this->config.rosParams()->getParam("allowed_extractors", std::unordered_set<std::string>{});
+  const auto excluded = this->config.rosParams()->getParam("excluded_extractors", std::unordered_set<std::string>{});
+
   for (const auto& cl : this->loader.getDeclaredClasses())
   {
+    if (excluded.count(cl) > 0)
+    {
+      CRAS_DEBUG_NAMED("metadata_plugins", "Excluding extractor %s .", cl.c_str());
+      continue;
+    }
+    if (hasAllowed && allowed.count(cl) == 0)
+    {
+      CRAS_DEBUG_NAMED("metadata_plugins", "Extractor %s is not allowed.", cl.c_str());
+      continue;
+    }
     try
     {
       CRAS_DEBUG_NAMED("metadata_plugins", "Loading extractor plugin %s.", cl.c_str());
