@@ -72,28 +72,28 @@ public:
     const auto waitAfterPublisherCreated =
       this->params->getParam("wait_after_publisher_created", ros::WallDuration(1));
 
-    const auto& timedMeta = metadataExtractor->supportedTimedMetadata();
-    const auto hasTimedMeta = [&timedMeta](const TimedMetadataType type)
+    const auto& timedMeta = metadataExtractor->supportedTimedMetadata({});
+    const auto hasTimedMeta = [&timedMeta](const MetadataType type)
     {
       return timedMeta.find(type) != timedMeta.end();
     };
 
-    if (metadataExtractor->getCameraInfo().has_value() || hasTimedMeta(TimedMetadataType::CAMERA_INFO))
+    if (metadataExtractor->getCameraInfo().has_value() || hasTimedMeta(MetadataType::CAMERA_INFO))
       this->cameraPub = this->imageTransport->advertiseCamera("movie", pubQueueSize);
     else
       this->imagePub = this->imageTransport->advertise("movie", pubQueueSize);
 
-    if (metadataExtractor->getAzimuth().has_value() || hasTimedMeta(TimedMetadataType::AZIMUTH))
+    if (metadataExtractor->getAzimuth().has_value() || hasTimedMeta(MetadataType::AZIMUTH))
       this->azimuthPub = this->topicsNh.advertise<compass_msgs::Azimuth>("azimuth", pubQueueSize);
-    if (metadataExtractor->getMagneticField().has_value() || hasTimedMeta(TimedMetadataType::MAGNETIC_FIELD))
+    if (metadataExtractor->getMagneticField().has_value() || hasTimedMeta(MetadataType::MAGNETIC_FIELD))
       this->magPub = this->topicsNh.advertise<sensor_msgs::MagneticField>("imu/mag", pubQueueSize);
-    if (metadataExtractor->getGNSSPosition().first.has_value() || hasTimedMeta(TimedMetadataType::GNSS_POSITION))
+    if (metadataExtractor->getGNSSPosition().first.has_value() || hasTimedMeta(MetadataType::GNSS_POSITION))
       this->navMsgPub = this->topicsNh.advertise<sensor_msgs::NavSatFix>("fix", pubQueueSize);
-    if (metadataExtractor->getGNSSPosition().second.has_value() || hasTimedMeta(TimedMetadataType::GNSS_POSITION))
+    if (metadataExtractor->getGNSSPosition().second.has_value() || hasTimedMeta(MetadataType::GNSS_POSITION))
       this->gpsPub = this->topicsNh.advertise<gps_common::GPSFix>("fix_detail", pubQueueSize);
-    if (metadataExtractor->getImu().has_value() || hasTimedMeta(TimedMetadataType::IMU))
+    if (metadataExtractor->getImu().has_value() || hasTimedMeta(MetadataType::IMU))
       this->imuPub = this->topicsNh.advertise<sensor_msgs::Imu>("imu/data", pubQueueSize);
-    if (metadataExtractor->getFaces().has_value() || hasTimedMeta(TimedMetadataType::FACES))
+    if (metadataExtractor->getFaces().has_value() || hasTimedMeta(MetadataType::FACES))
       this->facesPub = this->topicsNh.advertise<vision_msgs::Detection2DArray>("faces", pubQueueSize);
 
     waitAfterPublisherCreated.sleep();
@@ -327,7 +327,7 @@ public:
     }
     else
     {
-      this->playbackRate = this->privateParams()->getParam("fps", ros::Rate(this->movie->info().frameRate()), "FPS");
+      this->playbackRate = this->privateParams()->getParam("fps", ros::Rate(this->movie->info()->frameRate()), "FPS");
     }
 
     if (immediateMode && this->loop)
@@ -346,15 +346,15 @@ public:
 
     do
     {
-      if (!this->movie->info().isStillImage())
+      if (!this->movie->info()->isStillImage())
       {
         if (this->verbose)
-          CRAS_INFO("Seeking to %s", cras::to_string(this->movie->info().subclipStart()).c_str());
+          CRAS_INFO("Seeking to %s", cras::to_string(this->movie->info()->subclipStart()).c_str());
         const auto seekResult = this->movie->seekInSubclip({0, 0});
         if (!seekResult.has_value())
         {
           CRAS_ERROR("Error seeking to position %s. Stopping publishing.",
-            cras::to_string(this->movie->info().subclipStart()).c_str());
+            cras::to_string(this->movie->info()->subclipStart()).c_str());
           this->movieMetadataProcessor->shutdown();
           if (!this->spinAfterEnd)
             this->requestStop();
@@ -384,7 +384,7 @@ public:
         }
 
         const auto playbackState = maybePtsAndImg->first;
-        const auto& subclipEnd = this->movie->info().subclipEnd();
+        const auto& subclipEnd = this->movie->info()->subclipEnd();
         if (!subclipEnd.isZero() && playbackState.streamTime() > subclipEnd)
           break;
 
@@ -392,9 +392,9 @@ public:
         {
           if (this->playbackRate.has_value())
             this->playbackRate->sleep();
-          if (this->loop && this->movie->info().isStillImage())
+          if (this->loop && this->movie->info()->isStillImage())
             this->movieMetadataProcessor->repeatLastFrame();
-        } while (this->loop && this->movie->info().isStillImage() && ros::ok() && this->ok());
+        } while (this->loop && this->movie->info()->isStillImage() && ros::ok() && this->ok());
       }
     } while (this->loop && ros::ok() && this->ok());
 

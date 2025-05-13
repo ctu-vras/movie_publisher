@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -23,6 +24,8 @@
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Vector3.h>
 #include <gps_common/GPSFix.h>
+#include <movie_publisher/metadata_cache.h>
+#include <movie_publisher/metadata_type.h>
 #include <movie_publisher/movie_info.h>
 #include <movie_publisher/movie_open_config.h>
 #include <ros/time.h>
@@ -40,13 +43,6 @@ namespace movie_publisher
 
 class MetadataManager;
 
-using IntrinsicMatrix = sensor_msgs::CameraInfo::_K_type;
-using DistortionType = sensor_msgs::CameraInfo::_distortion_model_type;
-using Distortion = sensor_msgs::CameraInfo::_D_type;
-using GNSSFixAndDetail = std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>>;
-using SensorSize = std::pair<double, double>;
-using RollPitch = std::pair<double, double>;
-
 /**
  * \brief Parameters passed to the extractor plugins when initializing them.
  */
@@ -55,8 +51,9 @@ struct MetadataExtractorParams
   cras::LogHelperPtr log;  //!< Logger.
   std::weak_ptr<MetadataManager> manager;  //!< Weak pointer to the metadata manager. Use it to call other extractors.
   MovieOpenConfig config;  //!< Configuration with which the movie was opened.
-  MovieInfo info;  //!< Basic information about the open movie.
+  MovieInfo::ConstPtr info;  //!< Basic information about the open movie.
   const AVFormatContext* avFormatContext;  //!< Libav context of the open movie.
+  std::shared_ptr<MetadataCache> cache;  //!< Cache of latest and timed metadata.
 };
 
 /**
@@ -72,7 +69,7 @@ struct MetadataExtractorParams
  *
  * Some metadata reference transformation frames. Two frames are recognized:
  * - optical frame: The frame of the captured image, i.e. Z forward, X down and Y right, origin in optical center.
- * - geometrical frame: The ROS convential geometrical frame, i.e. Z up, X forward, Y left, origin in optical center.
+ * - geometrical frame: The ROS conventional geometrical frame, i.e. Z up, X forward, Y left, origin in optical center.
  *
  * \note Implementing classes should not call any of the base implementations provided by this class.
  */
@@ -172,7 +169,7 @@ public:
   /**
    * \return Camera distortion coefficients (corresponding to the OpenCV calibration model: 5 or 8 elements).
    */
-  virtual cras::optional<std::pair<DistortionType, Distortion>> getDistortion() { return cras::nullopt; }
+  virtual cras::optional<DistortionData> getDistortion() { return cras::nullopt; }
   /**
    * \return GNSS position of the camera when capturing the frame.
    */
@@ -221,7 +218,7 @@ public:
   /**
    * \return The transform from camera body frame to a gravity-aligned frame.
    */
-  virtual cras::optional<geometry_msgs::TransformStamped> getZeroRollPitchTF() { return cras::nullopt; }
+  virtual cras::optional<geometry_msgs::Transform> getZeroRollPitchTF() { return cras::nullopt; }
 
   // These reserved functions are future-proofing placeholders that allow adding new types of extractable metadata
   // without breaking binary compatibility of existing extractors. When adding the getter for the new metadata type,
@@ -240,43 +237,6 @@ private:
   virtual void __reserved7() {}
   virtual void __reserved8() {}
   virtual void __reserved9() {}
-};
-
-/**
- * \brief Timestamping wrapper for any kind of metadata.
- * \tparam T Type of metadata.
- */
-template<typename T>
-struct TimedMetadata
-{
-  using value_type = T;  //!< Type of the metadata values.
-  StreamTime stamp;  //!< Timestamp of the data (in stream time).
-  T value;  //!< The stored metadata.
-};
-
-/**
- * \brief Enum for metadata that can be varying over time.
- */
-enum class TimedMetadataType
-{
-  ROTATION,
-  CROP_FACTOR,
-  SENSOR_SIZE_MM,
-  FOCAL_LENGTH_35MM,
-  FOCAL_LENGTH_MM,
-  FOCAL_LENGTH_PX,
-  INTRINSIC_MATRIX,
-  DISTORTION,
-  GNSS_POSITION,
-  AZIMUTH,
-  MAGNETIC_FIELD,
-  ROLL_PITCH,
-  ACCELERATION,
-  ANGULAR_VELOCITY,
-  FACES,
-  CAMERA_INFO,
-  IMU,
-  OPTICAL_FRAME_TF,
 };
 
 /**
@@ -341,7 +301,7 @@ struct TimedMetadataListener
    * \brief Process the camera distortion coefficients (corresponding to the OpenCV calibration model).
    * \data[in] The distortion coefficients (5 or 8 elements).
    */
-  virtual void processDistortion(const TimedMetadata<std::pair<DistortionType, Distortion>>& data) {}
+  virtual void processDistortion(const TimedMetadata<DistortionData>& data) {}
   /**
    * \brief Process the GNSS position of the camera when capturing the frame.
    * \data[in] The GNSS position.
@@ -396,6 +356,12 @@ struct TimedMetadataListener
    */
   virtual void processOpticalFrameTF(const TimedMetadata<geometry_msgs::Transform>& data) {}
 
+  /**
+   * \brief Process the transform from camera body frame to a gravity-aligned frame.
+   * \data[in] The transform from camera body frame to a gravity-aligned frame.
+   */
+  virtual void processZeroRollPitchTF(const TimedMetadata<geometry_msgs::Transform>& data) {}
+
 private:
   // These reserved functions are future-proofing placeholders that allow adding new callbacks. See MetadataExtractor.
   virtual void __reserved0() {}
@@ -414,7 +380,7 @@ private:
  * \brief Extractor of timed metadata.
  *
  * Different from the static metadata, timed metadata can get new values as the movie is advanced. Also, the update
- * rates of the timed metadata may not match the framerate of the movie. That is way "reading" the timed metadata
+ * rates of the timed metadata may not match the framerate of the movie. That is wHy "reading" the timed metadata
  * is implemented via callbacks to the TimedMetadataListener classes.
  */
 class TimedMetadataExtractor : public MetadataExtractor
@@ -436,57 +402,61 @@ public:
   virtual void addTimedMetadataListener(const std::shared_ptr<TimedMetadataListener>& listener);
 
   /**
-   * \brief Get a list of timed metadata that are supported by this instance of the extractor.
-   * \return A mapping of metadata types to their priority.
-   * \note For each metadata type, only the extractor with the lowest priority value will be called to actually
-   *       extract the metadata. Order the priorities by the complexity of extracting the data. Anything below 20
-   *       means that it is not needed to open or read additional files.
+   * \brief Perform any required initialization of the extractor so that it is prepared to extract metadata of the given
+   *        types.
+   * \param[in] metadataTypes The types of metadata this extractor should provide.
+   * \note This method should be called before the first call to processTimedMetadata() and canProduceTimedMetadata().
+   * \note Implementing classes should not call this base method implementation.
+   */
+  virtual void prepareTimedMetadata(const std::unordered_set<MetadataType>& metadataTypes);
+
+  /**
+   * \brief Get a list of timed metadata that are supported by this instance of the extractor based on the given
+   *        available metadata.
+   * \param[in] availableMetadata The timed metadata that is currently available.
+   * \return Supported metadata types.
    * \note This function should return a correct result right after the extractor is constructed. It should reflect
    *       the actual content of the file the extractor is bound to, and if the extractor doesn't see anything it could
    *       decode, it should return an empty value from this function.
    */
-  virtual const std::unordered_map<TimedMetadataType, int>& supportedTimedMetadata() const = 0;
-
-  /**
-   * \brief Perform any required initialization of the extractor so that it is prepared to extract metadata of the given
-   *        types.
-   * \param[in] requestedTypes The types of metadata this extractor should provide. It is essential that it doesn't call
-   *                           listener callbacks for any other types. The list of types passed to this function should
-   *                           be a subset of supportedTimedMetadata().
-   * \note This method should be called before the first call to processTimedMetadata().
-   * \note Implementing classes should call this base method in their overrides. This method sets
-   *       requestedMetadataTypes to whatever is received in requestedTypes.
-   */
-  virtual void prepareTimedMetadata(const std::vector<TimedMetadataType>& requestedTypes);
+  virtual std::unordered_set<MetadataType> supportedTimedMetadata(
+    const std::unordered_set<MetadataType>& availableMetadata) const = 0;
 
   /**
    * \brief Process timed metadata up until the time passed as parameter.
+   * \param[in] type Type of the requested metadata.
    * \param[in] maxTime The maximum stream timestamp of the timed metadata that should be passed to listeners.
+   * \param[in] requireOptional If true and the timed metadata are composed of multiple base metadata, treat even
+   *                            optional metadata as required. This is used by the metadata creation loop to first
+   *                            make sure other providers have produced as much as they can before this metadata is
+   *                            asked to be produced even with incomplete optional dependencies.
+   * \return The number of produced metadata (corresponds to the number of callbacks called).
    * \note It is assumed that maxTime is a sequence of times growing as fast as the video frame timestamps. Use
    *       seekTimedMetadata() to inform the extractor that it should seek somewhere (create a discontinuity in this
    *       growing sequence of timestamps).
    * \note If timed metadata are present and supported, all listeners added by addTimedMetadataListener() will be
-   *       called with appropriate data (limited to the types set in prepareTimedMetadata()).
+   *       called with appropriate data.
    * \note Implementing classes should not call this base method implementation.
    */
-  virtual void processTimedMetadata(const StreamTime& maxTime) {}
+  virtual size_t processTimedMetadata(MetadataType type, const StreamTime& maxTime, bool requireOptional);
 
   /**
    * \brief Seek timed metadata to the given stream time.
    * \param[in] seekTime The stream timestamp to seek to.
    * \note Implementing classes should not call this base method implementation.
    */
-  virtual void seekTimedMetadata(const StreamTime& seekTime) {}
+  virtual void seekTimedMetadata(const StreamTime& seekTime);
 
   /**
    * \return Whether the extractor is able to extract some timed metadata from the movie it is bound to.
+   * \note This is the best guess based on the current knowledge of the extractor. It can still happen that
+   *       processTimedMetadata() will fail to produce the metadata.
    * \note Implementing classes should not call this base method implementation.
    */
-  virtual bool hasTimedMetadata() const { return false; }
+  virtual bool hasTimedMetadata() const;
 
 protected:
   std::vector<TimedMetadataListener::Ptr> listeners;  //!< The listeners whose callbacks should be called.
-  std::unordered_set<TimedMetadataType> requestedTimedMetadata;  //!< The list of metadata types to process.
 };
 
 /**

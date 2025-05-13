@@ -17,6 +17,7 @@
 #include <cras_cpp_common/log_utils/memory.h>
 #include <cras_cpp_common/log_utils/node.h>
 #include <cras_cpp_common/param_utils/param_helper.hpp>
+#include <cras_cpp_common/param_utils/get_param_adapters/xmlrpc_value.hpp>
 #include <movie_publisher/metadata_manager.h>
 #include <sensor_msgs/distortion_models.h>
 
@@ -58,13 +59,32 @@ getExtractor(const TestData& data, const size_t width, const size_t height)
   // auto log = std::make_shared<cras::MemoryLogHelper>();
   auto log = std::make_shared<cras::NodeLogHelper>();
 
-  auto manager = std::make_shared<movie_publisher::MetadataManager>(log, width, height);
+  XmlRpc::XmlRpcValue paramsXml;
+  paramsXml.begin();
+  auto adapter = std::make_shared<cras::XmlRpcValueGetParamAdapter>(paramsXml, "");
+  auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
+  movie_publisher::MovieOpenConfig config(params);
+  auto info = std::make_shared<movie_publisher::MovieInfo>();
+  info->setWidth(width);
+  info->setHeight(height);
+
+  auto manager = std::make_shared<movie_publisher::MetadataManager>(log, config, info);
   auto extractor = std::make_shared<movie_publisher::CamInfoManagerMetadataExtractor>(
     log, manager, width, height,
     std::list{TEST_URL_PREFIX + "/${NAME}-${FOCAL_LENGTH}.yaml", TEST_URL_PREFIX + "/${NAME}.yaml"});
   manager->addExtractor(extractor);
   auto extra = std::make_shared<TestExtractor>(log, data);
   manager->addExtractor(extra);
+
+  // Add camera name and intrinsics composers
+  pluginlib::ClassLoader<movie_publisher::MetadataExtractorPlugin> loader(
+    "movie_publisher", "movie_publisher::MetadataExtractorPlugin", "metadata_plugins");
+  auto cl = loader.createUniqueInstance("movie_publisher/camera_intrinsics_composer");
+  movie_publisher::MetadataExtractorParams extractorParams {log, manager, config, info, nullptr, manager->getCache()};
+  manager->addExtractor(cl->getExtractor(extractorParams));
+  cl = loader.createUniqueInstance("movie_publisher/camera_name_composer");
+  manager->addExtractor(cl->getExtractor(extractorParams));
+
   return std::make_pair(manager, extractor);
 }
 

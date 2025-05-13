@@ -21,7 +21,7 @@ namespace movie_publisher
  */
 struct MovieInfo::Impl final
 {
-  std::string filenameOrURL; //!< The name of the file with the movie, or its URL.
+  std::string filenameOrURL;  //!< The name of the file with the movie, or its URL.
   int movieStreamIndex {0};  //!< Index of the selected stream from which the movie will be decoded.
 
   bool isSeekable {false};  //!< Whether the movie can be efficiently seeked.

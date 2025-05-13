@@ -15,6 +15,7 @@
 #include <cras_cpp_common/log_utils/memory.h>
 #include <cras_cpp_common/log_utils/node.h>
 #include <cras_cpp_common/param_utils/param_helper.hpp>
+#include <cras_cpp_common/param_utils/get_param_adapters/xmlrpc_value.hpp>
 #include <cras_cpp_common/string_utils/ros.hpp>
 #include <movie_publisher/metadata_manager.h>
 
@@ -25,9 +26,26 @@ movie_publisher::MetadataManager::Ptr getExtractor(const std::string& filename, 
   // auto log = std::make_shared<cras::MemoryLogHelper>();
   auto log = std::make_shared<cras::NodeLogHelper>();
 
-  auto manager = std::make_shared<movie_publisher::MetadataManager>(log, width, height);
+  XmlRpc::XmlRpcValue paramsXml;
+  paramsXml.begin();
+  auto adapter = std::make_shared<cras::XmlRpcValueGetParamAdapter>(paramsXml, "");
+  auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
+  movie_publisher::MovieOpenConfig config(params);
+  auto info = std::make_shared<movie_publisher::MovieInfo>();
+  info->setWidth(width);
+  info->setHeight(height);
+
+  auto manager = std::make_shared<movie_publisher::MetadataManager>(log, config, info);
   auto extractor = std::make_shared<movie_publisher::Exiv2MetadataExtractor>(log, manager, filename, width, height);
   manager->addExtractor(extractor);
+
+  // Add camera intrinsics composer
+  pluginlib::ClassLoader<movie_publisher::MetadataExtractorPlugin> loader(
+    "movie_publisher", "movie_publisher::MetadataExtractorPlugin", "metadata_plugins");
+  const auto cl = loader.createUniqueInstance("movie_publisher/camera_intrinsics_composer");
+  movie_publisher::MetadataExtractorParams extractorParams {log, manager, config, info, nullptr, manager->getCache()};
+  manager->addExtractor(cl->getExtractor(extractorParams));
+
   return manager;
 }
 

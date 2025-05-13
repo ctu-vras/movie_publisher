@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <cras_cpp_common/expected.hpp>
+#include <movie_publisher/metadata_type.h>
 #include <ros/duration.h>
 
 namespace movie_publisher
@@ -26,7 +27,7 @@ class MovieMetadataProcessor;
  */
 struct MovieOpenConfig final
 {
-  MovieOpenConfig();
+  explicit MovieOpenConfig(const cras::BoundParamHelperPtr& rosParams);
   ~MovieOpenConfig();
   MovieOpenConfig(const MovieOpenConfig& other);
   MovieOpenConfig& operator=(const MovieOpenConfig& other);
@@ -160,6 +161,19 @@ struct MovieOpenConfig final
    * \return Nothing or error string.
    */
   cras::expected<void, std::string> setRosParams(const cras::BoundParamHelperPtr& data);
+
+  /**
+   * \return Types of metadata to be extracted (defaults to all metadata).
+   */
+  std::unordered_set<MetadataType> metadataTypes() const;
+  /**
+   * \param[in] types Types of metadata to be extracted.
+   * \return Nothing or error string.
+   */
+  cras::expected<void, std::string> setMetadataTypes(const std::unordered_set<MetadataType>& types);
+
+  using Ptr = std::shared_ptr<MovieOpenConfig>;
+  using ConstPtr = std::shared_ptr<const MovieOpenConfig>;
 
 private:
   struct Impl;

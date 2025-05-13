@@ -21,11 +21,14 @@
 #include <cras_cpp_common/param_utils/bound_param_helper.hpp>
 #include <geometry_msgs/TransformStamped.h>
 #include <gps_common/GPSFix.h>
+#define MAGIC_ENUM_USING_ALIAS_OPTIONAL template <typename T> using optional = cras::optional<T>;
+#include <magic_enum.hpp>
 #include <movie_publisher/metadata_extractor.h>
 #include <movie_publisher/metadata_manager.h>
 #include <movie_publisher/movie_reader.h>
 #include <movie_publisher/parsing_utils.h>
 #include <movie_publisher/types.h>
+#include <ros/assert.h>
 #include <ros/duration.h>
 #include <ros/time.h>
 #include <sensor_msgs/image_encodings.h>
@@ -88,6 +91,7 @@ void MovieMetadataListener::processGNSSPosition(
       auto copy = *gnss.value.second;
       copy.header.stamp = this->getTimestamp(gnss.stamp);
       copy.header.frame_id = this->config.frameId();
+      copy.status.header = copy.header;
       processor->processGps(copy);
     }
   }
@@ -142,6 +146,9 @@ void MovieMetadataListener::processOpticalFrameTF(const TimedMetadata<geometry_m
 
 MoviePrivate::MoviePrivate(const cras::LogHelperPtr& log) : cras::HasLogger(log)
 {
+  this->info = std::make_shared<MovieInfo>();
+  this->playbackState = std::make_shared<MoviePlaybackState>();
+
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
   av_register_all();
 #endif
@@ -262,134 +269,164 @@ size_t MoviePrivate::getNumFrames() const
 
 void MoviePrivate::prepareMetadataExtractors()
 {
-  const auto& codecParams = this->stream->codecpar;
-  const size_t width = codecParams->width;
-  const size_t height = codecParams->height;
-
-  this->metadataManager = std::make_shared<MetadataManager>(this->log, this->config, this->info);
+  this->metadataManager = std::make_shared<MetadataManager>(this->log, *this->config, this->info);
 
   const MetadataExtractorParams params = {
-    this->log, this->metadataManager, this->config, this->info, this->formatContext
+    this->log, this->metadataManager, *this->config, this->info, this->formatContext, this->metadataManager->getCache(),
   };
   this->metadataManager->loadExtractorPlugins(params);
 
   this->metadataListener = std::make_shared<MovieMetadataListener>(
-    this->config, cras::bind_front(&MoviePrivate::getTimestamp, this));
+    *this->config, cras::bind_front(&MoviePrivate::getTimestamp, this));
   this->metadataManager->addTimedMetadataListener(this->metadataListener);
 
-  this->metadataManager->prepareTimedMetadata({});
+  this->metadataManager->prepareTimedMetadata(this->config->metadataTypes());
 }
 
 void MoviePrivate::extractMetadata()
 {
   const auto rosStamp = this->getTimestamp(this->lastSeek);
+  const auto& metadataTypes = this->config->metadataTypes();
 
-  const auto [navMsg, gpsMsg] = this->metadataManager->getGNSSPosition();
-  if (navMsg.has_value())
+  if (metadataTypes.find(MetadataType::GNSS_POSITION) != metadataTypes.end())
   {
-    const auto rosNavMsg = updateHeader(*navMsg, rosStamp, this->config.frameId());
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processNavSatFix(rosNavMsg);
-  }
-  if (gpsMsg.has_value())
-  {
-    const auto rosGpsMsg = updateHeader(*gpsMsg, rosStamp, this->config.frameId());
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processGps(rosGpsMsg);
-  }
-
-  const auto azimuth = this->metadataManager->getAzimuth();
-  if (azimuth.has_value())
-  {
-    const auto azimuthMsg = updateHeader(*azimuth, rosStamp, this->config.frameId());
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processAzimuth(azimuthMsg);
+    const auto [navMsg, gpsMsg] = this->metadataManager->getGNSSPosition();
+    if (navMsg.has_value())
+    {
+      const auto rosNavMsg = updateHeader(*navMsg, rosStamp, this->config->frameId());
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processNavSatFix(rosNavMsg);
+    }
+    if (gpsMsg.has_value())
+    {
+      const auto rosGpsMsg = updateHeader(*gpsMsg, rosStamp, this->config->frameId());
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processGps(rosGpsMsg);
+    }
   }
 
-  const auto magField = this->metadataManager->getMagneticField();
-  if (magField.has_value())
+  if (metadataTypes.find(MetadataType::AZIMUTH) != metadataTypes.end())
   {
-    const auto magneticFieldMsg = updateHeader(*magField, rosStamp, this->config.frameId());
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processMagneticField(magneticFieldMsg);
+    const auto azimuth = this->metadataManager->getAzimuth();
+    if (azimuth.has_value())
+    {
+      const auto azimuthMsg = updateHeader(*azimuth, rosStamp, this->config->frameId());
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processAzimuth(azimuthMsg);
+    }
   }
 
-  const auto imuMsg = this->metadataManager->getImu();
-  if (imuMsg.has_value())
+  if (metadataTypes.find(MetadataType::MAGNETIC_FIELD) != metadataTypes.end())
   {
-    const auto rosImuMsg = updateHeader(*imuMsg, rosStamp, this->config.frameId());
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processImu(rosImuMsg);
+    const auto magField = this->metadataManager->getMagneticField();
+    if (magField.has_value())
+    {
+      const auto magneticFieldMsg = updateHeader(*magField, rosStamp, this->config->frameId());
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processMagneticField(magneticFieldMsg);
+    }
   }
 
-  const auto rollPitch = this->metadataManager->getRollPitch();
-  if (rollPitch.has_value())
+  if (metadataTypes.find(MetadataType::IMU) != metadataTypes.end())
   {
-    geometry_msgs::TransformStamped zeroRollPitchTfMsg;
-    zeroRollPitchTfMsg.header.frame_id = this->config.frameId();
-    zeroRollPitchTfMsg.child_frame_id = this->config.frameId() + "_zero_roll_pitch";
-    zeroRollPitchTfMsg.header.stamp = rosStamp;
-    tf2::Quaternion quat;
-    quat.setRPY(rollPitch->first, rollPitch->second, 0);
-    zeroRollPitchTfMsg.transform.rotation = tf2::toMsg(quat.inverse());
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processZeroRollPitchTf(zeroRollPitchTfMsg);
+    const auto imuMsg = this->metadataManager->getImu();
+    if (imuMsg.has_value())
+    {
+      const auto rosImuMsg = updateHeader(*imuMsg, rosStamp, this->config->frameId());
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processImu(rosImuMsg);
+    }
   }
 
-  const auto opticalTf = this->metadataManager->getOpticalFrameTF();
-  if (opticalTf.has_value())
+  if (metadataTypes.find(MetadataType::ZERO_ROLL_PITCH_TF) != metadataTypes.end())
   {
-    geometry_msgs::TransformStamped opticalTfMsg;
-    opticalTfMsg.header.stamp = rosStamp;
-    opticalTfMsg.header.frame_id = this->config.frameId();
-    opticalTfMsg.transform = *opticalTf;
-    opticalTfMsg.child_frame_id = this->config.opticalFrameId();
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processOpticalTf(opticalTfMsg);
+    const auto zeroRollPitchTf = this->metadataManager->getZeroRollPitchTF();
+    if (zeroRollPitchTf.has_value())
+    {
+      geometry_msgs::TransformStamped zeroRollPitchTfMsg;
+      zeroRollPitchTfMsg.header.frame_id = this->config->frameId();
+      zeroRollPitchTfMsg.child_frame_id = this->config->frameId() + "_zero_roll_pitch";
+      zeroRollPitchTfMsg.header.stamp = rosStamp;
+      zeroRollPitchTfMsg.transform = *zeroRollPitchTf;
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processZeroRollPitchTf(zeroRollPitchTfMsg);
+    }
   }
 
-  const auto facesMsg = this->metadataManager->getFaces();
-  if (facesMsg.has_value())
+  if (metadataTypes.find(MetadataType::OPTICAL_FRAME_TF) != metadataTypes.end())
   {
-    const auto rosFacesMsg = updateHeader(*facesMsg, rosStamp, this->config.opticalFrameId());
-    for (const auto& processor : this->config.metadataProcessors())
-      processor->processFaces(rosFacesMsg);
+    const auto opticalTf = this->metadataManager->getOpticalFrameTF();
+    if (opticalTf.has_value())
+    {
+      geometry_msgs::TransformStamped opticalTfMsg;
+      opticalTfMsg.header.stamp = rosStamp;
+      opticalTfMsg.header.frame_id = this->config->frameId();
+      opticalTfMsg.transform = *opticalTf;
+      opticalTfMsg.child_frame_id = this->config->opticalFrameId();
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processOpticalTf(opticalTfMsg);
+    }
+  }
+
+  if (metadataTypes.find(MetadataType::FACES) != metadataTypes.end())
+  {
+    const auto facesMsg = this->metadataManager->getFaces();
+    if (facesMsg.has_value())
+    {
+      const auto rosFacesMsg = updateHeader(*facesMsg, rosStamp, this->config->opticalFrameId());
+      for (const auto& processor : this->config->metadataProcessors())
+        processor->processFaces(rosFacesMsg);
+    }
   }
 
   // Temporarily change to a UTF-8 locale so that we can print the ° characters.
   cras::TempLocale l(LC_CTYPE, "en_US.UTF-8");
 
-  const auto uniqueCamName = this->metadataManager->getCameraUniqueName();
-  if (uniqueCamName.has_value())
+  if (metadataTypes.find(MetadataType::CAMERA_UNIQUE_NAME) != metadataTypes.end())
   {
-    CRAS_INFO("Camera: %s", uniqueCamName.value().c_str());
+    const auto uniqueCamName = this->metadataManager->getCameraUniqueName();
+    if (uniqueCamName.has_value())
+    {
+      CRAS_INFO("Camera: %s", uniqueCamName.value().c_str());
+    }
+    else if (metadataTypes.find(MetadataType::CAMERA_GENERAL_NAME) != metadataTypes.end())
+    {
+      const auto camName = this->metadataManager->getCameraGeneralName();
+      if (camName.has_value())
+        CRAS_INFO("Camera: %s", camName.value().c_str());
+    }
   }
-  else
+  if (metadataTypes.find(MetadataType::CREATION_TIME) != metadataTypes.end())
   {
-    const auto camName = this->metadataManager->getCameraGeneralName();
-    if (camName.has_value())
-      CRAS_INFO("Camera: %s", camName.value().c_str());
+    CRAS_INFO("Creation time: %s",
+      cras::to_pretty_string(this->metadataManager->getCreationTime().value_or(ros::Time{})).c_str());
   }
-  CRAS_INFO("Creation time: %s",
-    cras::to_pretty_string(this->metadataManager->getCreationTime().value_or(ros::Time{})).c_str());
-  CRAS_INFO("Rotation is %d°.", this->metadataManager->getRotation().value_or(0));
-  if (navMsg.has_value() || gpsMsg.has_value())
+  if (metadataTypes.find(MetadataType::ROTATION) != metadataTypes.end())
   {
-    const auto lat = navMsg.has_value() ? navMsg->latitude : gpsMsg->latitude;
-    const auto lon = navMsg.has_value() ? navMsg->longitude : gpsMsg->longitude;
-    const auto alt = navMsg.has_value() ? navMsg->altitude : gpsMsg->altitude;
-    CRAS_INFO("GPS coordinates are %0.8f° %s, %0.8f° %s, %0.2f m.a.s.l.",
-      std::fabs(lat), lat >= 0 ? "N" : "S", std::fabs(lon), lon >= 0 ? "E" : "W", alt);
+    CRAS_INFO("Rotation is %d°.", this->metadataManager->getRotation().value_or(0));
   }
-  if (this->metadataManager->getAzimuth().has_value())
+  if (metadataTypes.find(MetadataType::GNSS_POSITION) != metadataTypes.end())
   {
-    const auto& azimuthMsg = *this->metadataManager->getAzimuth();
+    const auto [navMsg, gpsMsg] = this->metadataManager->getGNSSPosition();
+    if (navMsg.has_value() || gpsMsg.has_value())
+    {
+      const auto lat = navMsg.has_value() ? navMsg->latitude : gpsMsg->latitude;
+      const auto lon = navMsg.has_value() ? navMsg->longitude : gpsMsg->longitude;
+      const auto alt = navMsg.has_value() ? navMsg->altitude : gpsMsg->altitude;
+      CRAS_INFO("GPS coordinates are %0.8f° %s, %0.8f° %s, %0.2f m.a.s.l.",
+        std::fabs(lat), lat >= 0 ? "N" : "S", std::fabs(lon), lon >= 0 ? "E" : "W", alt);
+    }
+  }
+  if (metadataTypes.find(MetadataType::AZIMUTH) != metadataTypes.end() &&
+    this->metadataManager->getAzimuth().has_value())
+  {
+    const auto azimuthMsg = *this->metadataManager->getAzimuth();
     CRAS_INFO("Azimuth is %0.3f° from %s North.", azimuthMsg.azimuth,
       azimuthMsg.reference == compass_msgs::Azimuth::REFERENCE_GEOGRAPHIC ? "true" : "magnetic");
   }
-  if (this->metadataManager->getImu().has_value())
+  if (metadataTypes.find(MetadataType::IMU) != metadataTypes.end() && this->metadataManager->getImu().has_value())
   {
-    const auto& imuMsg = *this->metadataManager->getImu();
+    const auto imuMsg = *this->metadataManager->getImu();
     const auto& orientation = imuMsg.orientation;
     tf2::Quaternion quat;
     tf2::convert(orientation, quat);
@@ -405,9 +442,10 @@ void MoviePrivate::extractMetadata()
     const auto& a = imuMsg.linear_acceleration;
     CRAS_INFO("Acceleration is %.2f %.2f %.2f m/s^2.", a.x, a.y, a.z);
   }
-  if (this->metadataManager->getCameraInfo().has_value())
+  if (metadataTypes.find(MetadataType::CAMERA_INFO) != metadataTypes.end() &&
+    this->metadataManager->getCameraInfo().has_value())
   {
-    const auto& cameraInfoMsg = *this->metadataManager->getCameraInfo();
+    const auto cameraInfoMsg = *this->metadataManager->getCameraInfo();
     if (cameraInfoMsg.K[0] != 0)
       CRAS_INFO("Camera projection is calibrated [fx=%0.1f, fy=%0.1f, cx=%0.1f, cy=%0.1f].",
         cameraInfoMsg.K[0], cameraInfoMsg.K[4], cameraInfoMsg.K[2], cameraInfoMsg.K[5]);
@@ -419,13 +457,61 @@ void MoviePrivate::extractMetadata()
 
 void MoviePrivate::updateMetadata(const StreamTime& ptsTime)
 {
-  this->metadataManager->processTimedMetadata(ptsTime);
+  auto metadataToUpdate = this->config->metadataTypes();
+  decltype(metadataToUpdate) changed;
+  // This should never be higher than 1; but we count it just in case
+  size_t noUpdateIterations = 0;
+
+  // Iterate over timed metadata extractors as long as new metadata are extracted (some extractors may depend on
+  // metadata produced by other extractors; that is why we need to loop).
+  do
+  {
+    changed.clear();
+    for (const auto type : metadataToUpdate)
+    {
+      const auto numProcessed = this->metadataManager->processTimedMetadata(type, ptsTime, true);
+      if (numProcessed > 0)
+      {
+        changed.insert(type);
+        CRAS_DEBUG_THROTTLE_NAMED(1.0, std::string("timed_metadata.") + std::string(magic_enum::enum_name(type)),
+          "Produced %zu timed messages.", numProcessed);
+      }
+    }
+    if (!changed.empty())
+    {
+      for (const auto& m : changed)
+        metadataToUpdate.erase(m);
+      continue;
+    }
+    // If no new metadata were produced, relax the requirement for optional metadata and try without them
+    for (const auto type : metadataToUpdate)
+    {
+      const auto numProcessed = this->metadataManager->processTimedMetadata(type, ptsTime, false);
+      if (numProcessed > 0)
+      {
+        changed.insert(type);
+        CRAS_DEBUG_THROTTLE_NAMED(1.0, std::string("timed_metadata.") + std::string(magic_enum::enum_name(type)),
+          "Produced %zu timed messages.", numProcessed);
+      }
+    }
+    if (!changed.empty())
+    {
+      for (const auto& m : changed)
+        metadataToUpdate.erase(m);
+      continue;
+    }
+    noUpdateIterations++;
+    ROS_ASSERT_MSG(noUpdateIterations < 10, "Too many iterations of updateMetadata()");
+  }
+  while (!metadataToUpdate.empty() && !changed.empty());
+
+  this->metadataManager->clearTimedMetadataCache();
 }
 
 ros::Time MoviePrivate::getTimestamp(const StreamTime& ptsTime) const
 {
   ros::Time result;
-  switch (this->config.timestampSource())
+  switch (this->config->timestampSource())
   {
     case TimestampSource::AbsoluteVideoTimecode:
       result = ptsTime.toRosTime();
@@ -440,10 +526,10 @@ ros::Time MoviePrivate::getTimestamp(const StreamTime& ptsTime) const
       result = ros::Time::now();
     break;
     case TimestampSource::FromMetadata:
-      result = this->info.metadataStartTime() + (ptsTime - StreamTime{}).toRosDuration();
+      result = this->info->metadataStartTime() + (ptsTime - StreamTime{}).toRosDuration();
     break;
   }
-  result += this->config.timestampOffset();
+  result += this->config->timestampOffset();
   return result;
 }
 
@@ -456,21 +542,21 @@ cras::expected<std::pair<AVCodec*, int>, std::string> MoviePrivate::selectStream
   AVCodec* codec {nullptr};
 
   int selectedStreamIndex {0};
-  if (this->config.forceStreamIndex().has_value())
+  if (this->config->forceStreamIndex().has_value())
   {
-    if (*this->config.forceStreamIndex() >= this->formatContext->nb_streams)
+    if (*this->config->forceStreamIndex() >= this->formatContext->nb_streams)
     {
       return cras::make_unexpected(cras::format(
         "Requested stream number %i, but file %s has only %i streams.",
-        *this->config.forceStreamIndex(), this->config.filenameOrURL().c_str(), this->formatContext->nb_streams));
+        *this->config->forceStreamIndex(), this->config->filenameOrURL().c_str(), this->formatContext->nb_streams));
     }
 
-    const auto& stream = this->formatContext->streams[*this->config.forceStreamIndex()];
+    const auto& stream = this->formatContext->streams[*this->config->forceStreamIndex()];
     if (stream->codecpar->codec_type != AVMEDIA_TYPE_VIDEO)
     {
       return cras::make_unexpected(cras::format(
         "Stream %i in file %s is not a video stream.",
-        *this->config.forceStreamIndex(), this->config.filenameOrURL().c_str()));
+        *this->config->forceStreamIndex(), this->config->filenameOrURL().c_str()));
     }
 
     if (this->formatContext->video_codec != nullptr)
@@ -484,10 +570,10 @@ cras::expected<std::pair<AVCodec*, int>, std::string> MoviePrivate::selectStream
       {
         return cras::make_unexpected(cras::format(
           "Stream %i of file %s is a video stream, but there is no codec for it (codec ID is %i)!",
-          *this->config.forceStreamIndex(), this->config.filenameOrURL().c_str(), stream->codecpar->codec_id));
+          *this->config->forceStreamIndex(), this->config->filenameOrURL().c_str(), stream->codecpar->codec_id));
       }
     }
-    selectedStreamIndex = *this->config.forceStreamIndex();
+    selectedStreamIndex = *this->config->forceStreamIndex();
   }
   else
   {
@@ -497,13 +583,13 @@ cras::expected<std::pair<AVCodec*, int>, std::string> MoviePrivate::selectStream
     {
       if (selectedStreamIndex == AVERROR_STREAM_NOT_FOUND)
         return cras::make_unexpected(cras::format(
-          "File %s does not contain a video stream!", this->config.filenameOrURL().c_str()));
+          "File %s does not contain a video stream!", this->config->filenameOrURL().c_str()));
       else if (selectedStreamIndex == AVERROR_DECODER_NOT_FOUND)
         cras::make_unexpected(cras::format(
-          "File %s contains a video stream, but there is no codec for it!", this->config.filenameOrURL().c_str()));
+          "File %s contains a video stream, but there is no codec for it!", this->config->filenameOrURL().c_str()));
       else
         return cras::make_unexpected(cras::format(
-          "Error finding a suitable video stream in file %s!", this->config.filenameOrURL().c_str()));
+          "Error finding a suitable video stream in file %s!", this->config->filenameOrURL().c_str()));
     }
   }
 
@@ -538,7 +624,7 @@ cras::expected<void, std::string> MoviePrivate::openCodec(const AVCodec* codec)
     cras::make_unexpected(cras::format("Failed to copy codec params to codec context: %s", av_err2str(res)));
 
   AVDictionary* codecOpts = nullptr;
-  av_dict_set(&codecOpts, "threads", cras::to_string(this->config.numThreads()).c_str(), 0);
+  av_dict_set(&codecOpts, "threads", cras::to_string(this->config->numThreads()).c_str(), 0);
 
   res = avcodec_open2(this->codecContext, codec, &codecOpts);
   if (res < 0)
@@ -557,18 +643,18 @@ void MoviePrivate::detectTargetPixelFormat()
   const std::string inputPixFmtName = av_get_pix_fmt_name(inputPixFmt);
 
   // Detect which encoding and pixel format will be used for the conversion to ROS image.
-  if (this->config.forceEncoding().has_value())
+  if (this->config->forceEncoding().has_value())
   {
-    if (rosEncodingToAvPixFmt(this->config.forceEncoding().value()).has_value())
+    if (rosEncodingToAvPixFmt(this->config->forceEncoding().value()).has_value())
     {
-      this->targetPixelFormat = *rosEncodingToAvPixFmt(this->config.forceEncoding().value());
+      this->targetPixelFormat = *rosEncodingToAvPixFmt(this->config->forceEncoding().value());
     }
     else
     {
-      this->targetPixelFormat = *rosEncodingToAvPixFmt(this->config.defaultEncoding());
+      this->targetPixelFormat = *rosEncodingToAvPixFmt(this->config->defaultEncoding());
       CRAS_WARN(
         "ROS encoding '%s' is not supported. Converting to default encoding '%s' instead.",
-        this->config.forceEncoding()->c_str(), this->config.defaultEncoding().c_str());
+        this->config->forceEncoding()->c_str(), this->config->defaultEncoding().c_str());
     }
   }
   else
@@ -581,7 +667,7 @@ void MoviePrivate::detectTargetPixelFormat()
     // There is no direct mapping, use a fallback
     else
     {
-      if (this->config.allowYUVFallback() && cras::startsWith(cras::toLower(inputPixFmtName), "yuv"))
+      if (this->config->allowYUVFallback() && cras::startsWith(cras::toLower(inputPixFmtName), "yuv"))
       {
         this->targetPixelFormat = *rosEncodingToAvPixFmt(sensor_msgs::image_encodings::YUV422);
         CRAS_DEBUG(
@@ -590,10 +676,10 @@ void MoviePrivate::detectTargetPixelFormat()
       }
       else
       {
-        this->targetPixelFormat = *rosEncodingToAvPixFmt(this->config.defaultEncoding());
+        this->targetPixelFormat = *rosEncodingToAvPixFmt(this->config->defaultEncoding());
         CRAS_DEBUG(
           "Pixel format '%s' has no corresponding ROS encoding. Converting to default encoding '%s'.",
-          inputPixFmtName.c_str(), this->config.defaultEncoding().c_str());
+          inputPixFmtName.c_str(), this->config->defaultEncoding().c_str());
       }
     }
   }
@@ -653,9 +739,9 @@ cras::expected<void, std::string> MoviePrivate::addRotationFilter()
   filterInputs->next = nullptr;
 
   std::string filterDesc;
-  if (this->info.metadataRotation() == 90.0)
+  if (this->info->metadataRotation() == 90.0)
     filterDesc = "transpose=1";
-  else if (this->info.metadataRotation() == 180.0)
+  else if (this->info->metadataRotation() == 180.0)
     filterDesc = "transpose=1,transpose=1";
   else
     filterDesc = "transpose=2";
@@ -682,7 +768,7 @@ cras::expected<void, std::string> MoviePrivate::addRotationFilter()
 cras::expected<void, std::string> MoviePrivate::configSwscale()
 {
   const auto& codecParams = this->stream->codecpar;
-  const auto swapDims = this->info.metadataRotation() == 90 || this->info.metadataRotation() == 270;
+  const auto swapDims = this->info->metadataRotation() == 90 || this->info->metadataRotation() == 270;
   const auto outWidth = swapDims ? codecParams->height : codecParams->width;
   const auto outHeight = swapDims ? codecParams->width : codecParams->height;
 

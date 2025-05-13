@@ -48,7 +48,7 @@ public:
   /**
    * \return Basic information about the open movie.
    */
-  const MovieInfo& info() const;
+  MovieInfo::ConstPtr info() const;
 
   /**
    * \return The configuration with which the movie has been opened.
@@ -63,7 +63,7 @@ public:
   /**
    * \return The current playback state (after the last call to nextFrame()).
    */
-  const MoviePlaybackState& playbackState() const;
+  MoviePlaybackState::ConstPtr playbackState() const;
 
   /**
    * \brief Limit the part of the movie returned by nextFrame() calls to the given subclip.
@@ -166,7 +166,7 @@ protected:
   /**
    * \return Basic information about the open movie.
    */
-  MovieInfo& _info();
+  MovieInfo::Ptr _info();
 
   /**
    * \return The configuration with which the movie has been opened.
@@ -176,7 +176,7 @@ protected:
   /**
    * \return The current playback state (after the last call to nextFrame()).
    */
-  MoviePlaybackState& _playbackState();
+  MoviePlaybackState::Ptr _playbackState();
 
 private:
   std::unique_ptr<MoviePrivate> data;  //!< PIMPL

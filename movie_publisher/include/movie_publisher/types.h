@@ -27,10 +27,10 @@ struct RationalNumber
   int32_t denominator {1};  //!< Denominator
 
   // ReSharper disable once CppNonExplicitConversionOperator
-  operator double() const; // NOLINT(*-explicit-constructor)
+  operator double() const;  // NOLINT(*-explicit-constructor)
 
   // ReSharper disable once CppNonExplicitConversionOperator
-  operator float() const; // NOLINT(*-explicit-constructor)
+  operator float() const;  // NOLINT(*-explicit-constructor)
 
   /**
    * \return Corresponding libav representation of rational number.

@@ -52,7 +52,7 @@ public:
    * \param[in] config Configuration with which the movie has been opened.
    * \return Nothing or error.
    */
-  virtual cras::expected<void, std::string> onOpen(const MovieInfo& info, const MovieOpenConfig& config);
+  virtual cras::expected<void, std::string> onOpen(const MovieInfo::ConstPtr& info, const MovieOpenConfig& config);
 
   /**
    * \brief Callback telling the processor that static metadata have been extracted and timed metadata are ready.
@@ -159,7 +159,7 @@ public:
   virtual cras::expected<void, std::string> processFaces(const vision_msgs::Detection2DArray& facesMsg) {return {};}
 
 protected:
-  cras::optional<MovieInfo> info;  //!< Information about the last opened movie.
+  MovieInfo::ConstPtr info;  //!< Information about the last opened movie.
   cras::optional<MovieOpenConfig> config;  //!< Configuration of the last opened movie.
   std::shared_ptr<MetadataExtractor> metadataExtractor;  //!< Accessor to static metadata of the last opened movie.
   bool verbose {false};  //!< Whether the processor should be verbose.

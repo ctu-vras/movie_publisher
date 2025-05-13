@@ -12,7 +12,16 @@
 #include <memory>
 #include <string>
 
-#include <movie_publisher/metadata_extractor.h>
+#include <compass_msgs/Azimuth.h>
+#include <cras_cpp_common/optional.hpp>
+#include <geometry_msgs/Transform.h>
+#include <gps_common/GPSFix.h>
+#include <movie_publisher/metadata_type.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/MagneticField.h>
+#include <sensor_msgs/NavSatFix.h>
+#include <vision_msgs/Detection2DArray.h>
 
 namespace movie_publisher
 {
@@ -72,8 +81,8 @@ struct LatestMetadataCache final
   cras::optional<cras::optional<IntrinsicMatrix>>& getIntrinsicMatrix();
   const cras::optional<cras::optional<IntrinsicMatrix>>& getIntrinsicMatrix() const;
 
-  cras::optional<cras::optional<std::pair<DistortionType, Distortion>>>& getDistortion();
-  const cras::optional<cras::optional<std::pair<DistortionType, Distortion>>>& getDistortion() const;
+  cras::optional<cras::optional<DistortionData>>& getDistortion();
+  const cras::optional<cras::optional<DistortionData>>& getDistortion() const;
 
   cras::optional<GNSSFixAndDetail>& getGNSSPosition();
   const cras::optional<GNSSFixAndDetail>& getGNSSPosition() const;
@@ -101,6 +110,9 @@ struct LatestMetadataCache final
 
   cras::optional<cras::optional<geometry_msgs::Transform>>& getOpticalFrameTF();
   const cras::optional<cras::optional<geometry_msgs::Transform>>& getOpticalFrameTF() const;
+
+  cras::optional<cras::optional<geometry_msgs::Transform>>& getZeroRollPitchTF();
+  const cras::optional<cras::optional<geometry_msgs::Transform>>& getZeroRollPitchTF() const;
 
   cras::optional<cras::optional<vision_msgs::Detection2DArray>>& getFaces();
   const cras::optional<cras::optional<vision_msgs::Detection2DArray>>& getFaces() const;
@@ -171,6 +183,9 @@ struct TimedMetadataCache final
   std::vector<TimedMetadata<geometry_msgs::Transform>>& opticalFrameTF();
   const std::vector<TimedMetadata<geometry_msgs::Transform>>& opticalFrameTF() const;
 
+  std::vector<TimedMetadata<geometry_msgs::Transform>>& zeroRollPitchTF();
+  const std::vector<TimedMetadata<geometry_msgs::Transform>>& zeroRollPitchTF() const;
+
   std::vector<TimedMetadata<GNSSFixAndDetail>>& gnssPosition();
   const std::vector<TimedMetadata<GNSSFixAndDetail>>& gnssPosition() const;
 
@@ -187,5 +202,51 @@ struct MetadataCache final
   LatestMetadataCache latest;  //!< Latest metadata of each type.
   TimedMetadataCache timed;  //!< Timed metadata.
 };
+
+/**
+ * \brief Compare TimedMetadata according to their stamps.
+ * \tparam M Type of the metadata.
+ * \param[in] a The timed metadata to compare.
+ * \param[in] b The timestamp to compare with.
+ * \return Whether a is greater than b.
+ */
+template<typename M>
+static bool CompareStamp(const TimedMetadata<M>& a, const StreamTime& b)
+{
+  return a.stamp > b;
+}
+
+/**
+ * \brief Find index of the latest data from `data` that have their timestamp less than or equal to `stamp`.
+ * \tparam M Metadata type.
+ * \param[in] data A stamp-ordered list of metadata.
+ * \param[in] stamp The maximum timestamp.
+ * \return Index of the latest data up to stamp.
+ */
+template<typename M>
+auto findLastUpToStamp(const std::vector<TimedMetadata<M>>& data, const StreamTime& stamp)
+{
+  return std::lower_bound(data.crbegin(), data.crend(), stamp, &CompareStamp<M>);
+}
+
+/**
+ * \brief Find the latest data from `data` that have their timestamp less than or equal to `stamp`.
+ * \tparam M Metadata type.
+ * \param[in] data A stamp-ordered list of metadata.
+ * \param[in] stamp The maximum timestamp.
+ * \param[in] defaultVal The default value to return in case no value was found in `data`.
+ * \return Index of the latest data up to stamp.
+ */
+template<typename M>
+cras::optional<TimedMetadata<M>> findLastUpToStamp(const std::vector<TimedMetadata<M>>& data, const StreamTime& stamp,
+  const cras::optional<M>& defaultVal)
+{
+  const auto it = findLastUpToStamp(data, stamp);
+  if (it != data.crend())
+    return *it;
+  if (defaultVal.has_value())
+    return TimedMetadata<M>{StreamTime{}, *defaultVal};
+  return cras::nullopt;
+}
 
 }

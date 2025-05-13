@@ -61,17 +61,19 @@ TEST(MovieReader, TestEncoding)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  m.setAllowYUVFallback(false);
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setAllowYUVFallback(false);
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_FALSE(movie->_info().isStillImage);
-  EXPECT_TRUE(movie->_info().isSeekable);
-  EXPECT_EQ(363, movie->_info().streamNumFrames);
+  EXPECT_FALSE(movie->info()->isStillImage());
+  EXPECT_TRUE(movie->info()->isSeekable());
+  EXPECT_EQ(363, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF());
 
   auto maybeNextFrame = movie->nextFrame();
@@ -96,16 +98,18 @@ TEST(MovieReader, FairphoneStill)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/fairphone/IMG_20241125_024757.jpg",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/fairphone/IMG_20241125_024757.jpg", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_TRUE(movie->_info().isStillImage);
-  EXPECT_FALSE(movie->_info().isSeekable);
-  EXPECT_EQ(1, movie->_info().streamNumFrames);
+  EXPECT_TRUE(movie->info()->isStillImage());
+  EXPECT_FALSE(movie->info()->isSeekable());
+  EXPECT_EQ(1, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getCameraInfo().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getImu().has_value());
@@ -116,9 +120,9 @@ TEST(MovieReader, FairphoneStill)  // NOLINT
 
   auto maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  auto stamp = maybeNextFrame->first;
+  auto playbackState = maybeNextFrame->first;
   auto image = maybeNextFrame->second;
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
   EXPECT_NEAR(cras::parseTime("2024-11-25 02:48:00.585").toSec(), image->header.stamp.toSec(), 5.0);
   EXPECT_EQ("test_optical_frame", image->header.frame_id);
   EXPECT_EQ(4000, image->width);
@@ -144,16 +148,18 @@ TEST(MovieReader, FairphoneMovie)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_FALSE(movie->_info().isStillImage);
-  EXPECT_TRUE(movie->_info().isSeekable);
-  EXPECT_EQ(363, movie->_info().streamNumFrames);
+  EXPECT_FALSE(movie->info()->isStillImage());
+  EXPECT_TRUE(movie->info()->isSeekable());
+  EXPECT_EQ(363, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getCameraInfo().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getImu().has_value());
@@ -164,10 +170,10 @@ TEST(MovieReader, FairphoneMovie)  // NOLINT
 
   auto maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  auto stamp = maybeNextFrame->first;
+  auto playbackState = maybeNextFrame->first;
   auto image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 38400000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 38400000), playbackState.streamTime());
   EXPECT_NEAR(cras::parseTime("2024-08-15 12:35:51").toSec(), image->header.stamp.toSec(), 5.0);
   EXPECT_EQ("test_optical_frame", image->header.frame_id);
   EXPECT_EQ(1080, image->width);
@@ -178,35 +184,35 @@ TEST(MovieReader, FairphoneMovie)  // NOLINT
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 71722222), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 71722222), playbackState.streamTime());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 105044444), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 105044444), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(2.5)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(2, 504288889), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(2, 504288889), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(0, 0)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 38400000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 38400000), playbackState.streamTime());
 }
 
 TEST(MovieReader, LumixStill)  // NOLINT
@@ -220,16 +226,18 @@ TEST(MovieReader, LumixStill)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/lumix/P1260334.JPG",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/lumix/P1260334.JPG", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_TRUE(movie->_info().isStillImage);
-  EXPECT_FALSE(movie->_info().isSeekable);
-  EXPECT_EQ(1, movie->_info().streamNumFrames);
+  EXPECT_TRUE(movie->info()->isStillImage());
+  EXPECT_FALSE(movie->info()->isSeekable());
+  EXPECT_EQ(1, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getAzimuth().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getMagneticField().has_value());
@@ -237,9 +245,9 @@ TEST(MovieReader, LumixStill)  // NOLINT
 
   auto maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  auto stamp = maybeNextFrame->first;
+  auto playbackState = maybeNextFrame->first;
   auto image = maybeNextFrame->second;
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
   EXPECT_NEAR(cras::parseTime("2020-02-17 05:59:01.726").toSec(), image->header.stamp.toSec(), 5.0);
   EXPECT_EQ("test_optical_frame", image->header.frame_id);
   EXPECT_EQ(4592, image->width);
@@ -265,16 +273,18 @@ TEST(MovieReader, LumixMovie)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/lumix/P1260657.MP4",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/lumix/P1260657.MP4", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_FALSE(movie->_info().isStillImage);
-  EXPECT_TRUE(movie->_info().isSeekable);
-  EXPECT_EQ(132, movie->_info().streamNumFrames);
+  EXPECT_FALSE(movie->info()->isStillImage());
+  EXPECT_TRUE(movie->info()->isSeekable());
+  EXPECT_EQ(132, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getAzimuth().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getMagneticField().has_value());
@@ -282,10 +292,10 @@ TEST(MovieReader, LumixMovie)  // NOLINT
 
   auto maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  auto stamp = maybeNextFrame->first;
+  auto playbackState = maybeNextFrame->first;
   auto image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
   EXPECT_NEAR(cras::parseTime("2020-02-20 04:35:42.953").toSec(), image->header.stamp.toSec(), 5.0);
   EXPECT_EQ("test_optical_frame", image->header.frame_id);
   EXPECT_EQ(1920, image->width);
@@ -296,35 +306,35 @@ TEST(MovieReader, LumixMovie)  // NOLINT
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 40000000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 40000000), playbackState.streamTime());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 80000000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 80000000), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(2.5)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(2, 520000000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(2, 520000000), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(0, 0)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
 }
 
 TEST(MovieReader, FfmpegProcessed)  // NOLINT
@@ -338,16 +348,18 @@ TEST(MovieReader, FfmpegProcessed)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/ffmpeg_processed/P1320029.MP4.mp4",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/ffmpeg_processed/P1320029.MP4.mp4", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_FALSE(movie->_info().isStillImage);
-  EXPECT_TRUE(movie->_info().isSeekable);
-  EXPECT_EQ(984, movie->_info().streamNumFrames);
+  EXPECT_FALSE(movie->info()->isStillImage());
+  EXPECT_TRUE(movie->info()->isSeekable());
+  EXPECT_EQ(984, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getAzimuth().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getMagneticField().has_value());
@@ -355,10 +367,10 @@ TEST(MovieReader, FfmpegProcessed)  // NOLINT
 
   auto maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  auto stamp = maybeNextFrame->first;
+  auto playbackState = maybeNextFrame->first;
   auto image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
   // EXPECT_NEAR(cras::parseTime("2020-02-20 04:35:42.953").toSec(), image->header.stamp.toSec(), 5.0);
   EXPECT_EQ("test_optical_frame", image->header.frame_id);
   EXPECT_EQ(1920, image->width);
@@ -369,35 +381,35 @@ TEST(MovieReader, FfmpegProcessed)  // NOLINT
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 20000000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 20000000), playbackState.streamTime());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 40000000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 40000000), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(2.5)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(2, 500000000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(2, 500000000), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(0, 0)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
 }
 
 TEST(MovieReader, IphoneStill)  // NOLINT
@@ -411,25 +423,27 @@ TEST(MovieReader, IphoneStill)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/iphone/20241005_160034_IMG_4998.jpg",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/iphone/20241005_160034_IMG_4998.jpg", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_TRUE(movie->_info().isStillImage);
-  EXPECT_FALSE(movie->_info().isSeekable);
-  EXPECT_EQ(1, movie->_info().streamNumFrames);
+  EXPECT_TRUE(movie->info()->isStillImage());
+  EXPECT_FALSE(movie->info()->isSeekable());
+  EXPECT_EQ(1, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getMagneticField().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getFaces().has_value());
 
   auto maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  auto stamp = maybeNextFrame->first;
+  auto playbackState = maybeNextFrame->first;
   auto image = maybeNextFrame->second;
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
   EXPECT_NEAR(cras::parseTime("2024-10-05 16:00:34.359+0200").toSec(), image->header.stamp.toSec(), 5.0);
   EXPECT_EQ("test_optical_frame", image->header.frame_id);
   EXPECT_EQ(4032, image->width);
@@ -456,16 +470,18 @@ TEST(MovieReader, IphoneMovie)  // NOLINT
   auto params = std::make_shared<cras::BoundParamHelper>(log, adapter);
 
   auto m = movie_publisher::MovieReader(log, params);
-  m.setFrameId("test", "test_optical_frame");
-  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/iphone/IMG_2585.MOV",
-    movie_publisher::TimestampSource::FromMetadata);
+  movie_publisher::MovieOpenConfig config(params);
+  config.setFrameId("test");
+  config.setOpticalFrameId("test_optical_frame");
+  config.setTimestampSource(movie_publisher::TimestampSource::FromMetadata);
+  auto maybeMovie = m.open(std::string(TEST_DATA_DIR) + "/iphone/IMG_2585.MOV", config);
   ASSERT_TRUE(maybeMovie.has_value());
   auto movie = maybeMovie.value();
   ASSERT_NE(nullptr, movie);
   ASSERT_NE(nullptr, movie->staticMetadata());
-  EXPECT_FALSE(movie->_info().isStillImage);
-  EXPECT_TRUE(movie->_info().isSeekable);
-  EXPECT_EQ(234, movie->_info().streamNumFrames);
+  EXPECT_FALSE(movie->info()->isStillImage());
+  EXPECT_TRUE(movie->info()->isSeekable());
+  EXPECT_EQ(234, movie->info()->streamNumFrames());
   EXPECT_TRUE(movie->staticMetadata()->getOpticalFrameTF().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getAzimuth().has_value());
   EXPECT_FALSE(movie->staticMetadata()->getMagneticField().has_value());
@@ -473,10 +489,10 @@ TEST(MovieReader, IphoneMovie)  // NOLINT
 
   auto maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  auto stamp = maybeNextFrame->first;
+  auto playbackState = maybeNextFrame->first;
   auto image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
   EXPECT_NEAR(cras::parseTime("2024-09-26 13:48:00+0200").toSec(), image->header.stamp.toSec(), 5.0);
   EXPECT_EQ("test_optical_frame", image->header.frame_id);
   EXPECT_EQ(1920, image->width);
@@ -487,35 +503,35 @@ TEST(MovieReader, IphoneMovie)  // NOLINT
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 33333333), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 33333333), playbackState.streamTime());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 66666667), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 66666667), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(2.5)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(2, 500000000), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(2, 500000000), playbackState.streamTime());
 
   EXPECT_TRUE(movie->seek(movie_publisher::StreamTime(0, 0)).has_value());
 
   maybeNextFrame = movie->nextFrame();
   ASSERT_TRUE(maybeNextFrame.has_value());
-  stamp = maybeNextFrame->first;
+  playbackState = maybeNextFrame->first;
   image = maybeNextFrame->second;
   ASSERT_NE(nullptr, image);
-  EXPECT_EQ(movie_publisher::StreamTime(0, 0), stamp);
+  EXPECT_EQ(movie_publisher::StreamTime(0, 0), playbackState.streamTime());
 }
 
 int main(int argc, char **argv)

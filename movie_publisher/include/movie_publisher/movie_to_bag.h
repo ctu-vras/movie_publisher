@@ -37,6 +37,9 @@ public:
   explicit MovieToBagMetadataProcessor(const cras::LogHelperPtr& log, const std::string& bagFilename,
     const std::string& transport, const std::function<std::string(const std::string&)>& resolveName,
     const cras::BoundParamHelperPtr& params);
+  ~MovieToBagMetadataProcessor() override;
+
+  void close();
 
   virtual void addTimestampOffsetVars(MovieReaderRos& reader) const;
 

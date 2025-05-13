@@ -40,9 +40,7 @@ MovieReader::~MovieReader() = default;
 
 cras::expected<MovieOpenConfig, std::string> MovieReader::createDefaultConfig() const
 {
-  MovieOpenConfig config;
-  if (auto result = config.setRosParams(this->data->params); !result.has_value())
-    return cras::make_unexpected(result.error());
+  MovieOpenConfig config(this->data->params);
   if (auto result = config.setTimestampSource(TimestampSource::RosTime); !result.has_value())
     return cras::make_unexpected(result.error());
   return config;

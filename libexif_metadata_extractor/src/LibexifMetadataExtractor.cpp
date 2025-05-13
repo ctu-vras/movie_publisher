@@ -686,12 +686,12 @@ cras::optional<movie_publisher::ExifData<movie_publisher::ExifSRational>> Libexi
 
 MetadataExtractor::Ptr LibexifMetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
-  if (params.log == nullptr || params.info.filenameOrURL().empty() ||
-      params.info.width() == 0 || params.info.height() == 0)
+  if (params.log == nullptr || params.info->filenameOrURL().empty() ||
+      params.info->width() == 0 || params.info->height() == 0)
     return nullptr;
 
   return std::make_shared<LibexifMetadataExtractor>(
-    params.log, params.manager, params.info.filenameOrURL(), params.info.width(), params.info.height());
+    params.log, params.manager, params.info->filenameOrURL(), params.info->width(), params.info->height());
 }
 
 }

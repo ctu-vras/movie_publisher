@@ -23,7 +23,8 @@ namespace movie_publisher
 
 MovieMetadataProcessor::~MovieMetadataProcessor() = default;
 
-cras::expected<void, std::string> MovieMetadataProcessor::onOpen(const MovieInfo& info, const MovieOpenConfig& config)
+cras::expected<void, std::string> MovieMetadataProcessor::onOpen(
+  const MovieInfo::ConstPtr& info, const MovieOpenConfig& config)
 {
   this->info = info;
   this->config = config;
@@ -48,7 +49,7 @@ cras::expected<void, std::string> MovieMetadataProcessor::onClose()
 cras::expected<void, std::string> MovieMetadataProcessor::processFrame(
   const sensor_msgs::ImageConstPtr& image, const MoviePlaybackState& playbackState)
 {
-  if (this->verbose)
+  if (this->verbose && this->info != nullptr)
   {
     const auto numFrames = this->info->subclipNumFrames();
 

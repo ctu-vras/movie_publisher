@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: BSD-3-Clause -->
+<!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
+<library path="lib/libmovie_reader_metadata_composers">
+  <class name="movie_publisher/camera_name_composer" type="movie_publisher::CameraNameComposerPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Composer of camera name elements.
+    </description>
+  </class>
+  <class name="movie_publisher/camera_intrinsics_composer" type="movie_publisher::CameraIntrinsicsComposerPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Composer of camera intrinsics.
+    </description>
+  </class>
+  <class name="movie_publisher/camera_info_composer" type="movie_publisher::CameraInfoComposerPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Composer of CameraInfo messages.
+    </description>
+  </class>
+  <class name="movie_publisher/imu_composer" type="movie_publisher::ImuComposerPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Composer of Imu messages.
+    </description>
+  </class>
+  <class name="movie_publisher/roll_pitch_composer" type="movie_publisher::RollPitchComposerPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Composer of roll/pitch angles.
+    </description>
+  </class>
+  <class name="movie_publisher/optical_frame_tf_composer" type="movie_publisher::OpticalFrameTFComposerPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Composer of optical TF frame.
+    </description>
+  </class>
+  <class name="movie_publisher/zero_roll_pitch_tf_composer" type="movie_publisher::ZeroRollPitchTFComposerPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Composer of zero roll/pitch TF frame.
+    </description>
+  </class>
+</library>

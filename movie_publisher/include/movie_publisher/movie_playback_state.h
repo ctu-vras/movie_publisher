@@ -97,6 +97,9 @@ struct MoviePlaybackState
    */
   void setMovieEnded(bool ended);
 
+  using Ptr = std::shared_ptr<MoviePlaybackState>;
+  using ConstPtr = std::shared_ptr<const MoviePlaybackState>;
+
 private:
   struct Impl;
   std::unique_ptr<Impl> data;  //!< PIMPL

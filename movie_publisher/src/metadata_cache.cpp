@@ -45,6 +45,7 @@ struct LatestMetadataCache::Impl
   cras::optional<cras::optional<sensor_msgs::CameraInfo>> getCameraInfo;
   cras::optional<cras::optional<sensor_msgs::Imu>> getImu;
   cras::optional<cras::optional<geometry_msgs::Transform>> getOpticalFrameTF;
+  cras::optional<cras::optional<geometry_msgs::Transform>> getZeroRollPitchTF;
   cras::optional<cras::optional<vision_msgs::Detection2DArray>> getFaces;
 };
 
@@ -81,6 +82,7 @@ void LatestMetadataCache::clear()
   this->data->getCameraInfo.reset();
   this->data->getImu.reset();
   this->data->getOpticalFrameTF.reset();
+  this->data->getZeroRollPitchTF.reset();
   this->data->getFaces.reset();
 }
 
@@ -195,11 +197,11 @@ const cras::optional<cras::optional<IntrinsicMatrix>>& LatestMetadataCache::getI
   return this->data->getIntrinsicMatrix;
 }
 
-cras::optional<cras::optional<std::pair<DistortionType, Distortion>>>& LatestMetadataCache::getDistortion()
+cras::optional<cras::optional<DistortionData>>& LatestMetadataCache::getDistortion()
 {
   return this->data->getDistortion;
 }
-const cras::optional<cras::optional<std::pair<DistortionType, Distortion>>>& LatestMetadataCache::getDistortion() const
+const cras::optional<cras::optional<DistortionData>>& LatestMetadataCache::getDistortion() const
 {
   return this->data->getDistortion;
 }
@@ -276,6 +278,15 @@ const cras::optional<cras::optional<geometry_msgs::Transform>>& LatestMetadataCa
   return this->data->getOpticalFrameTF;
 }
 
+cras::optional<cras::optional<geometry_msgs::Transform>>& LatestMetadataCache::getZeroRollPitchTF()
+{
+  return this->data->getZeroRollPitchTF;
+}
+const cras::optional<cras::optional<geometry_msgs::Transform>>& LatestMetadataCache::getZeroRollPitchTF() const
+{
+  return this->data->getZeroRollPitchTF;
+}
+
 cras::optional<cras::optional<vision_msgs::Detection2DArray>>& LatestMetadataCache::getFaces()
 {
   return this->data->getFaces;
@@ -308,6 +319,7 @@ struct TimedMetadataCache::Impl
   std::vector<TimedMetadata<sensor_msgs::CameraInfo>> cameraInfo;
   std::vector<TimedMetadata<sensor_msgs::Imu>> imu;
   std::vector<TimedMetadata<geometry_msgs::Transform>> opticalFrameTF;
+  std::vector<TimedMetadata<geometry_msgs::Transform>> zeroRollPitchTF;
   std::vector<TimedMetadata<GNSSFixAndDetail>> gnssPosition;
 };
 
@@ -336,6 +348,7 @@ void TimedMetadataCache::clear()
   this->data->cameraInfo.clear();
   this->data->imu.clear();
   this->data->opticalFrameTF.clear();
+  this->data->zeroRollPitchTF.clear();
   this->data->gnssPosition.clear();
 }
 
@@ -445,6 +458,15 @@ std::vector<TimedMetadata<geometry_msgs::Transform>>& TimedMetadataCache::optica
 const std::vector<TimedMetadata<geometry_msgs::Transform>>& TimedMetadataCache::opticalFrameTF() const
 {
   return this->data->opticalFrameTF;
+}
+
+std::vector<TimedMetadata<geometry_msgs::Transform>>& TimedMetadataCache::zeroRollPitchTF()
+{
+  return this->data->zeroRollPitchTF;
+}
+const std::vector<TimedMetadata<geometry_msgs::Transform>>& TimedMetadataCache::zeroRollPitchTF() const
+{
+  return this->data->zeroRollPitchTF;
 }
 
 std::vector<TimedMetadata<GNSSFixAndDetail>>& TimedMetadataCache::gnssPosition() { return this->data->gnssPosition; }

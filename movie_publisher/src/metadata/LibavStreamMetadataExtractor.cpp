@@ -233,6 +233,8 @@ LibavStreamMetadataExtractor::getGNSSPosition()
         {
           gpsMsg.position_covariance_type = gps_common::GPSFix::COVARIANCE_TYPE_UNKNOWN;
         }
+        navMsg.position_covariance = gpsMsg.position_covariance;
+        navMsg.position_covariance_type = gpsMsg.position_covariance_type;
 
         return {navMsg, gpsMsg};
       }
@@ -249,7 +251,7 @@ MetadataExtractor::Ptr LibavStreamMetadataExtractorPlugin::getExtractor(const Me
     return nullptr;
 
   return std::make_shared<LibavStreamMetadataExtractor>(
-    params.log, params.avFormatContext, params.info.movieStreamIndex());
+    params.log, params.avFormatContext, params.info->movieStreamIndex());
 }
 
 }

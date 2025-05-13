@@ -446,7 +446,7 @@ cras::optional<std::pair<DistortionType, Distortion>> LensfunMetadataExtractor::
 MetadataExtractor::Ptr LensfunMetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
   if (params.log == nullptr || params.manager.lock() == nullptr ||
-      params.info.width() == 0 || params.info.height() == 0)
+      params.info->width() == 0 || params.info->height() == 0)
     return nullptr;
 
   std::string extraDb;
@@ -454,7 +454,7 @@ MetadataExtractor::Ptr LensfunMetadataExtractorPlugin::getExtractor(const Metada
     extraDb = params.config.rosParams()->getParam("lensfun_extra_db", std::string{});
 
   return std::make_shared<LensfunMetadataExtractor>(
-    params.log, params.manager, params.info.width(), params.info.height(), params.info.isStillImage(), extraDb);
+    params.log, params.manager, params.info->width(), params.info->height(), params.info->isStillImage(), extraDb);
 }
 
 }

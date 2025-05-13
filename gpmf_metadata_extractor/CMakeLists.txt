@@ -54,6 +54,8 @@ if (CATKIN_ENABLE_TESTING)
   file(GLOB_RECURSE ROSLINT_INCLUDE include/*.h include/*.hpp)
   file(GLOB_RECURSE ROSLINT_SRC src/*.cpp src/*.hpp src/*.h)
   file(GLOB_RECURSE ROSLINT_TEST test/*.cpp)
+  list(FILTER ROSLINT_INCLUDE EXCLUDE REGEX ".*/gpmf_parser/.*")
+  list(FILTER ROSLINT_SRC EXCLUDE REGEX ".*/gpmf_parser/.*")
 
   set(ROSLINT_CPP_OPTS "--extensions=h,hpp,hh,c,cpp,cc;--linelength=120;--filter=\
     -build/header_guard,-build/include,-readability/namespace,-whitespace/braces,-runtime/references,\

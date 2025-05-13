@@ -13,6 +13,7 @@
 
 #include <deque>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -33,6 +34,18 @@ namespace movie_publisher
 
 class StackGuard;
 struct CachingMetadataListener;
+
+struct PriorityComparator
+{
+  bool operator()(const MetadataExtractor::ConstPtr& lhs, const MetadataExtractor::ConstPtr& rhs) const
+  {
+    if (lhs == nullptr)
+      return true;
+    if (rhs == nullptr)
+      return false;
+    return lhs->getPriority() < rhs->getPriority();
+  }
+};
 
 /**
  * \brief Manager of multiple image metadata providers which can cooperate in parsing.
@@ -58,7 +71,7 @@ public:
    * \param[in] width Width of the parsed movie.
    * \param[in] height Height of the parsed movie.
    */
-  MetadataManager(const cras::LogHelperPtr& log, const MovieOpenConfig& config, const MovieInfo& info);
+  MetadataManager(const cras::LogHelperPtr& log, const MovieOpenConfig& config, const MovieInfo::ConstPtr& info);
   ~MetadataManager() override;
 
   /**
@@ -73,11 +86,24 @@ public:
    */
   void loadExtractorPlugins(const MetadataExtractorParams& params);
 
-  void prepareTimedMetadata(const std::vector<TimedMetadataType>& types) override;
-  void processTimedMetadata(const StreamTime& maxTime) override;
+  /**
+   * \brief Return the metadata cache.
+   * \return The metadata cache.
+   */
+  std::shared_ptr<MetadataCache> getCache();
+
+  /**
+   * \brief Clear all cached timed metadata.
+   */
+  void clearTimedMetadataCache();
+
+  void prepareTimedMetadata(const std::unordered_set<MetadataType>& metadataTypes) override;
+  std::unordered_set<MetadataType> supportedTimedMetadata(
+    const std::unordered_set<MetadataType>& availableMetadata) const override;
+  size_t processTimedMetadata(MetadataType type, const StreamTime& maxTime, bool requireOptional) override;
   void seekTimedMetadata(const StreamTime& seekTime) override;
+  bool hasTimedMetadata() const override;
   void processPacket(const AVPacket* packet) override;
-  const std::unordered_map<TimedMetadataType, int>& supportedTimedMetadata() const override;
 
   std::string getName() const override;
   int getPriority() const override;
@@ -108,6 +134,7 @@ public:
   cras::optional<sensor_msgs::CameraInfo> getCameraInfo() override;
   cras::optional<sensor_msgs::Imu> getImu() override;
   cras::optional<geometry_msgs::Transform> getOpticalFrameTF() override;
+  cras::optional<geometry_msgs::Transform> getZeroRollPitchTF() override;
 
 protected:
   /**
@@ -119,23 +146,19 @@ protected:
   bool stopRecursion(const std::string& fn, const MetadataExtractor* extractor) const;
 
   pluginlib::ClassLoader<MetadataExtractorPlugin> loader;  //!< The extractor plugin loader.
-  std::list<std::shared_ptr<MetadataExtractor>> extractors;  //!< Registered extractor instances.
-  std::list<std::shared_ptr<TimedMetadataExtractor>> timedExtractors;  //!< Registered timed extractor instances.
+  std::multiset<MetadataExtractor::Ptr, PriorityComparator> extractors;  //!< Registered extractor instances.
+  //! Registered timed extractor instances.
+  std::multiset<TimedMetadataExtractor::Ptr, PriorityComparator> timedExtractors;
   std::deque<std::pair<std::string, const MetadataExtractor*>> callStack;  //!< The stack of all calls via the manager.
   size_t width {0u};  //!< Width of the analyzed movie [px].
   size_t height {0u};  //!< Height of the analyzed movie [px].
 
   MovieOpenConfig config;  //!< Configuration of the open movie.
-  MovieInfo info;  //!< Information about the open movie.
+  MovieInfo::ConstPtr info;  //!< Information about the open movie.
   std::shared_ptr<MetadataCache> cache;  //!< Cache of static and timed metadata.
 
   //! The timed metadata listener proxy passed to all timed extractors to collect and cache their output.
   std::shared_ptr<CachingMetadataListener> metadataListener;
-
-  //! A union of timed metadata types supported by all extractors.
-  std::unordered_map<TimedMetadataType, int> mergedSupportedTimedMetadata;
-  //! Map of metadata type to the timed extractor that should be used to extract that type of metadata.
-  std::unordered_map<TimedMetadataType, std::shared_ptr<TimedMetadataExtractor>> timedMetadataExtractorPerType;
 
   friend StackGuard;
 };

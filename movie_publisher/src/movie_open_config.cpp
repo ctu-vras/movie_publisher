@@ -9,9 +9,14 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
+#include <cras_cpp_common/optional.hpp>
 #include <cras_cpp_common/string_utils.hpp>
+#define MAGIC_ENUM_USING_ALIAS_OPTIONAL template <typename T> using optional = cras::optional<T>;
+#include <magic_enum.hpp>
+#include <movie_publisher/metadata_type.h>
 #include <movie_publisher/movie_metadata_processor.h>
 #include <movie_publisher/movie_open_config.h>
 #include <movie_publisher/parsing_utils.h>
@@ -46,15 +51,20 @@ struct MovieOpenConfig::Impl
   ros::Duration timestampOffset;  //!< Optional offset to add to the extracted timestamps.
 
   cras::BoundParamHelperPtr rosParams {};  //!< ROS/YAML parameters that configure the reader and metadata extractors.
+
+  std::unordered_set<MetadataType> metadataTypes {};  //!< Types of metadata to be extracted. Defaults to all.
 };
 
-MovieOpenConfig::MovieOpenConfig() : data(new Impl())
+MovieOpenConfig::MovieOpenConfig(const cras::BoundParamHelperPtr& rosParams) : data(new Impl())
 {
+  const auto allMetadataTypes = magic_enum::enum_values<MetadataType>();
+  this->data->metadataTypes.insert(allMetadataTypes.begin(), allMetadataTypes.end());
+  this->data->rosParams = rosParams;
 }
 
 MovieOpenConfig::~MovieOpenConfig() = default;
 
-MovieOpenConfig::MovieOpenConfig(const MovieOpenConfig& other) : MovieOpenConfig()
+MovieOpenConfig::MovieOpenConfig(const MovieOpenConfig& other) : MovieOpenConfig(other.data->rosParams)
 {
   *this->data = *other.data;
 }
@@ -252,5 +262,15 @@ cras::expected<void, std::string> MovieOpenConfig::setRosParams(const cras::Boun
   return {};
 }
 
+std::unordered_set<MetadataType> MovieOpenConfig::metadataTypes() const
+{
+  return this->data->metadataTypes;
+}
+
+cras::expected<void, std::string> MovieOpenConfig::setMetadataTypes(const std::unordered_set<MetadataType>& types)
+{
+  this->data->metadataTypes = types;
+  return {};
+}
 
 }

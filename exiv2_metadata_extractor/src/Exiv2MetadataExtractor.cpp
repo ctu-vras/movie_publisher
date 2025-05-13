@@ -586,12 +586,12 @@ cras::optional<ExifData<ExifSRational>> Exiv2MetadataExtractor::getExifPitchAngl
 
 MetadataExtractor::Ptr Exiv2MetadataExtractorPlugin::getExtractor(const MetadataExtractorParams& params)
 {
-  if (params.log == nullptr || params.info.filenameOrURL().empty() ||
-      params.info.width() == 0 || params.info.height() == 0)
+  if (params.log == nullptr || params.info->filenameOrURL().empty() ||
+      params.info->width() == 0 || params.info->height() == 0)
     return nullptr;
 
   return std::make_shared<Exiv2MetadataExtractor>(
-    params.log, params.manager, params.info.filenameOrURL(), params.info.width(), params.info.height());
+    params.log, params.manager, params.info->filenameOrURL(), params.info->width(), params.info->height());
 }
 
 }

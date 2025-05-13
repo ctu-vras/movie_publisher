@@ -113,7 +113,7 @@ cras::expected<MoviePtr, std::string> MovieReaderRos::open(const std::string& fi
   if (!subclipResult.has_value())
     return cras::make_unexpected(subclipResult.error());
 
-  this->timestampOffsetVars["metadata_start"] = movie->info().metadataStartTime().toSec();
+  this->timestampOffsetVars["metadata_start"] = movie->info()->metadataStartTime().toSec();
 
   auto offsetOptions = cras::GetParamOptions<ros::Duration>{};
   offsetOptions.toParam = cras::bind_front(&parseTimestampOffset, this->timestampOffsetVars);

@@ -108,9 +108,9 @@ struct MoviePrivate : public cras::HasLogger
   explicit MoviePrivate(const cras::LogHelperPtr& log);
   ~MoviePrivate();
 
-  MovieOpenConfig config;
-  MovieInfo info;
-  MoviePlaybackState playbackState;  //!< Playback state of the movie.
+  MovieOpenConfig::Ptr config;
+  MovieInfo::Ptr info;
+  MoviePlaybackState::Ptr playbackState;  //!< Playback state of the movie.
 
   cras::optional<StreamTime> subclipStart;  //!< If nonempty, specifies the start of subclip to process.
   cras::optional<StreamTime> subclipEnd;  //!< If nonempty, specifies the end of subclip to process.

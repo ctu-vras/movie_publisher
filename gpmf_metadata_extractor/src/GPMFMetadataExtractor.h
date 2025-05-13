@@ -70,11 +70,12 @@ public:
   cras::optional<geometry_msgs::Vector3> getAngularVelocity() override;
   cras::optional<vision_msgs::Detection2DArray> getFaces() override;
 
-  void processTimedMetadata(const StreamTime& maxTime) override;
+  size_t processTimedMetadata(MetadataType type, const StreamTime& maxTime, bool requireOptional) override;
   void seekTimedMetadata(const StreamTime& seekTime) override;
   bool hasTimedMetadata() const override;
-  const std::unordered_map<TimedMetadataType, int>& supportedTimedMetadata() const override;
-  void prepareTimedMetadata(const std::vector<TimedMetadataType>& types) override;
+  std::unordered_set<MetadataType> supportedTimedMetadata(
+    const std::unordered_set<MetadataType>& availableMetadata) const override;
+  void prepareTimedMetadata(const std::unordered_set<MetadataType>& types) override;
   void processPacket(const AVPacket* packet) override;
 
 private:

@@ -88,12 +88,15 @@ cras::expected<void, std::string> MovieToBag::run()
     }
 
     const auto playbackState = std::get<0>(*maybePtsAndImg);
-    const auto& subclipEnd = this->movie->info().subclipEnd();
+    const auto& subclipEnd = this->movie->info()->subclipEnd();
     if (!subclipEnd.isZero() && playbackState.streamTime() > subclipEnd)
       break;
   }
 
   CRAS_INFO("Reached end of movie.");
+  this->metadataProcessor->close();
+  this->movie.reset();
+  this->metadataProcessor.reset();
 
   return {};
 }
@@ -189,6 +192,22 @@ MovieToBagMetadataProcessor::MovieToBagMetadataProcessor(
     CRAS_INFO("Overwriting bag file %s", fs::canonical(bagFilename).c_str());
 
   this->bag = std::make_unique<rosbag::Bag>(bagFilename, bagMode | rosbag::BagMode::Read);
+}
+
+MovieToBagMetadataProcessor::~MovieToBagMetadataProcessor()
+{
+  this->close();
+}
+
+void MovieToBagMetadataProcessor::close()
+{
+  if (this->bag != nullptr)
+  {
+    CRAS_INFO("Closing bag file.");
+    this->bag->close();
+    this->bag.reset();
+    ros::WallDuration(2.0).sleep();
+  }
 }
 
 void MovieToBagMetadataProcessor::addTimestampOffsetVars(MovieReaderRos& reader) const
@@ -328,6 +347,9 @@ cras::expected<void, std::string> MovieToBagMetadataProcessor::processOpticalTf(
   {
     auto connectionHeader = boost::make_shared<ros::M_string>();
     (*connectionHeader)["latching"] = "1";
+    (*connectionHeader)["type"] = ros::message_traits::datatype<decltype(msg)>();
+    (*connectionHeader)["md5sum"] = ros::message_traits::md5sum<decltype(msg)>();
+    (*connectionHeader)["message_definition"] = ros::message_traits::definition<decltype(msg)>();
     this->bag->write(this->getStaticTfTopic(), opticalTfMsg.header.stamp, msg, connectionHeader);
   }
   catch (const rosbag::BagIOException& e)

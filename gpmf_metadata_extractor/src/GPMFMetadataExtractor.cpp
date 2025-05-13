@@ -146,10 +146,10 @@ struct GPMFMetadataPrivate : public cras::HasLogger
   MetadataBuffer buffer;  //!< Buffer for messages decoded from libav packets.
   LastMetadataCache lastMetadata;  //!< Cache for keeping the last decoded message of each type.
 
-  //! List of supported metadata types and their extracting priorities.
-  std::unordered_map<TimedMetadataType, int> supportedTimedMetadata;
   //! The set of timed metadata requested to be produced by this extractor. Empty means all.
-  std::unordered_set<TimedMetadataType> requestedTimedMetadata;
+  std::unordered_set<MetadataType> requestedTimedMetadata;
+  //! Metadata supported by the currently loaded movie.
+  std::unordered_set<MetadataType> supportedTimedMetadata;
 
   /**
    * \brief Process a packet that was identified to belong to the gpmd stream.
@@ -187,25 +187,26 @@ GPMFMetadataExtractor::GPMFMetadataExtractor(
   if (this->data->gpmdStreamIndex.has_value())
   {
     CRAS_INFO_NAMED("gpmf", "Found timed metadata track.");
+
     // TODO check if this list is complete, but only list types that can be read directly without combining lower-level
     //      data. It is not important that all these data are in the stream, but if we have implementation for
     //      extracting data that are there.
     this->data->supportedTimedMetadata = {
-      {TimedMetadataType::CROP_FACTOR, priority},
-      {TimedMetadataType::SENSOR_SIZE_MM, priority},
-      {TimedMetadataType::DISTORTION, priority},
-      {TimedMetadataType::ROTATION, priority},
-      {TimedMetadataType::FOCAL_LENGTH_MM, priority},
-      {TimedMetadataType::FOCAL_LENGTH_35MM, priority},
-      {TimedMetadataType::FOCAL_LENGTH_PX, priority},
-      {TimedMetadataType::INTRINSIC_MATRIX, priority},
-      {TimedMetadataType::AZIMUTH, priority},
-      {TimedMetadataType::ROLL_PITCH, priority},
-      {TimedMetadataType::GNSS_POSITION, priority},
-      {TimedMetadataType::ACCELERATION, priority},
-      {TimedMetadataType::MAGNETIC_FIELD, priority},
-      {TimedMetadataType::ANGULAR_VELOCITY, priority},
-      {TimedMetadataType::FACES, priority},
+      MetadataType::CROP_FACTOR,
+      MetadataType::SENSOR_SIZE_MM,
+      MetadataType::DISTORTION,
+      MetadataType::ROTATION,
+      MetadataType::FOCAL_LENGTH_MM,
+      MetadataType::FOCAL_LENGTH_35MM,
+      MetadataType::FOCAL_LENGTH_PX,
+      MetadataType::INTRINSIC_MATRIX,
+      MetadataType::AZIMUTH,
+      MetadataType::ROLL_PITCH,
+      MetadataType::GNSS_POSITION,
+      MetadataType::ACCELERATION,
+      MetadataType::MAGNETIC_FIELD,
+      MetadataType::ANGULAR_VELOCITY,
+      MetadataType::FACES,
     };
   }
 }
@@ -369,13 +370,13 @@ cras::optional<vision_msgs::Detection2DArray> GPMFMetadataExtractor::getFaces()
   return cras::nullopt;
 }
 
-void GPMFMetadataExtractor::prepareTimedMetadata(const std::vector<TimedMetadataType>& types)
+void GPMFMetadataExtractor::prepareTimedMetadata(const std::unordered_set<MetadataType>& types)
 {
   TimedMetadataExtractor::prepareTimedMetadata(types);
   // TODO some stuff that needs to be done before starting to extract timed metadata from the video
   //      Called with a list of metadata that should be extracted (if empty, extract all).
   //      This can e.g. read the first second of the video to get all the static metadata like camera model etc.
-  this->data->requestedTimedMetadata = {types.begin(), types.end()};
+  this->data->requestedTimedMetadata = types;
   CRAS_INFO_NAMED("gpmf", "prepareTimedMetadata");
 }
 
@@ -419,14 +420,14 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
   GPMF_stream g_stream;
   uint32_t samples, elements, buffersize, faceLoadCount(0);
   uint64_t lastTimestamp_us(0);
-  if(GPMF_OK != GPMF_Init(&g_stream, payload, payloadsize))
+  if (GPMF_OK != GPMF_Init(&g_stream, payload, payloadsize))
   {
     // TODO THROW CRAS ERROR UNABLE TO INITIALIZE PACKET
   }
 
   do
   {
-    switch(GPMF_Key(&g_stream))
+    switch (GPMF_Key(&g_stream))
     {
       case STR2FOURCC("STMP"):
       {
@@ -440,11 +441,13 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
         elements = GPMF_ElementsInStruct(&g_stream);
         buffersize = samples * elements;
         std::vector<double> tmp_buf(buffersize);
-        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double),
+          0, samples, GPMF_TYPE_DOUBLE)) {
           // TODO THROW CRAS ERROR SCALING GPMD FAILED
         }
-        
-        const uint64_t entry_offset_us = 1'000'000 / 200; // calculate offset between accl entries based on the frequency, in microseconds
+
+        // calculate offset between accl entries based on the frequency, in microseconds
+        const uint64_t entry_offset_us = 1'000'000 / 200;
         for (size_t i = 0; i < samples; i++)
         {
           TimedMetadata<geometry_msgs::Vector3> msg;
@@ -452,7 +455,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
           msg.value.z = tmp_buf[i];
           msg.value.x = tmp_buf[i + 1];
           msg.value.y = tmp_buf[i + 2];
-          this->buffer.acceleration.emplace(msg); 
+          this->buffer.acceleration.emplace(msg);
         }
         break;
       }
@@ -463,11 +466,13 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
         elements = GPMF_ElementsInStruct(&g_stream);
         buffersize = samples * elements;
         std::vector<double> tmp_buf(buffersize);
-        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double),
+          0, samples, GPMF_TYPE_DOUBLE)) {
           // TODO THROW CRAS ERROR SCALING GPMD FAILED
         }
-        
-        const uint64_t entry_offset_us = 1'000'000 / 200; // calculate offset between accl entries based on the frequency, in microseconds
+
+        // calculate offset between accl entries based on the frequency, in microseconds
+        const uint64_t entry_offset_us = 1'000'000 / 200;
         for (size_t i = 0; i < samples; i++)
         {
           TimedMetadata<geometry_msgs::Vector3> msg;
@@ -475,26 +480,28 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
           msg.value.z = tmp_buf[i];
           msg.value.x = tmp_buf[i + 1];
           msg.value.y = tmp_buf[i + 2];
-          this->buffer.angularVelocity.emplace(msg); 
+          this->buffer.angularVelocity.emplace(msg);
         }
         break;
       }
-      
+
       case STR2FOURCC("GPS9"):
       {
         samples = GPMF_Repeat(&g_stream);
         elements = GPMF_ElementsInStruct(&g_stream);
         buffersize = samples * elements;
         std::vector<double> tmp_buf(buffersize);
-        
+
         std::cout.flush();
-        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double),
+          0, samples, GPMF_TYPE_DOUBLE)) {
           // TODO THROW CRAS ERROR SCALING GPMD FAILED
         }
         break;
 
-        const uint64_t entry_offset_us = 1'000'000 / 10; // calculate offset between accl entries based on the frequency, in microseconds
-        for(size_t i=0; i<samples; i++) {
+        // calculate offset between accl entries based on the frequency, in microseconds
+        const uint64_t entry_offset_us = 1'000'000 / 10;
+        for (size_t i = 0; i < samples; i++) {
           double latitude = tmp_buf[i * elements];
           double longitude = tmp_buf[i * elements + 1];
           double altitude = tmp_buf[i * elements + 2];
@@ -504,7 +511,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
           double seconds_since_midnight = tmp_buf[i * elements + 6];
           double dop = tmp_buf[i * elements + 7];
           uint64_t fix_type = tmp_buf[i * elements + 8];
-          
+
           cras::optional<sensor_msgs::NavSatFix> navSatFix;
           navSatFix.emplace();
           navSatFix->latitude = latitude;
@@ -516,9 +523,9 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
           gpsFix->latitude = latitude;
           gpsFix->longitude = longitude;
           gpsFix->altitude = altitude;
-          gpsFix->speed = speed_2d; // or 3d speed?
+          gpsFix->speed = speed_2d;  // or 3d speed?
           gpsFix->gdop = dop;
-          
+
           StreamTime time = StreamTime((lastTimestamp_us + faceLoadCount * entry_offset_us) / 10e6);
           TimedMetadata<std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>>> msg = {
             time, std::make_pair(navSatFix, gpsFix)
@@ -532,12 +539,14 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
         elements = GPMF_ElementsInStruct(&g_stream);
         buffersize = samples * elements;
         std::vector<double> tmp_buf(buffersize);
-        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE)) {
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double),
+          0, samples, GPMF_TYPE_DOUBLE)) {
           // TODO THROW CRAS ERROR SCALING GPMD FAILED
         }
-        
+
         // frequency GRAV = framerate
-        const uint64_t entry_offset_us = 1'000'000 / 24; // calculate offset between accl entries based on the frequency, in microseconds
+        // calculate offset between accl entries based on the frequency, in microseconds
+        const uint64_t entry_offset_us = 1'000'000 / 24;
         for (size_t i = 0; i < samples; i++)
         {
           double gx = tmp_buf[i * elements];
@@ -548,7 +557,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
           msg.stamp = StreamTime((lastTimestamp_us + faceLoadCount * entry_offset_us) / 10e6);
           // in radians
           msg.value.first = atan2(gy, gz);  // roll
-          msg.value.second = atan2(-gx, sqrt(gy * gy + gz * gz)); // pitch
+          msg.value.second = atan2(-gx, sqrt(gy * gy + gz * gz));  // pitch
           this->buffer.rollPitch.emplace(msg);
         }
         break;
@@ -566,13 +575,15 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
           break;
         }
 
-        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double), 0, samples, GPMF_TYPE_DOUBLE))
+        if (GPMF_OK != GPMF_ScaledData(&g_stream, tmp_buf.data(), buffersize * sizeof(double),
+          0, samples, GPMF_TYPE_DOUBLE))
         {
           // TODO THROW CRAS ERROR SCALING GPMD FAILED
         }
-        
+
         // frequency FACE ~ 10 / 12 depending on framerate on samples its 10
-        const uint64_t entry_offset_us = 1'000'000 / 10; // calculate offset between accl entries based on the frequency, in microseconds
+        // calculate offset between accl entries based on the frequency, in microseconds
+        const uint64_t entry_offset_us = 1'000'000 / 10;
         for (size_t i = 0; i < samples; i++)
         {
           double x = tmp_buf[i * elements + 3] * this->width;
@@ -590,7 +601,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
           msg.value.detections.back().bbox.center.x = center_x;
           msg.value.detections.back().bbox.center.y = center_y;
           msg.value.detections.back().bbox.size_x = w;
-          msg.value.detections.back().bbox.size_y = h; 
+          msg.value.detections.back().bbox.size_y = h;
 
           this->buffer.faces.emplace(msg);
         }
@@ -608,19 +619,19 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
         samples = GPMF_Repeat(&g_stream);
         elements = GPMF_ElementsInStruct(&g_stream);
       }
-      default: // if you don't know the Key you can skip to the next
+      default:  // if you don't know the Key you can skip to the next
       break;
     }
   } while (GPMF_OK == GPMF_Next(&g_stream, GPMF_RECURSE_LEVELS));
 
-  
+
   // TODO This is a fake loop to generate some data
   for (size_t i = 0; i < 10; i++)
   {
     const auto time = packetTime + StreamDuration(0.01) * i;
     const auto& req = this->requestedTimedMetadata;
 
-    if (req.empty() || req.find(TimedMetadataType::CROP_FACTOR) != req.end())
+    if (req.empty() || req.find(MetadataType::CROP_FACTOR) != req.end())
     {
       // TODO not sure where to get it; in the worst case, use a hard-coded table of GoPro models
       TimedMetadata<double> msg;
@@ -629,7 +640,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       this->buffer.cropFactor.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::SENSOR_SIZE_MM) != req.end())
+    if (req.empty() || req.find(MetadataType::SENSOR_SIZE_MM) != req.end())
     {
       // TODO not sure where to get it; in the worst case, hard-code a table from https://en.wikipedia.org/wiki/GoPro#HERO13
       TimedMetadata<std::pair<double, double>> msg;
@@ -639,22 +650,22 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       this->buffer.sensorSizeMM.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::DISTORTION) != req.end())
+    if (req.empty() || req.find(MetadataType::DISTORTION) != req.end())
     {
       // TODO https://github.com/gopro/gpmf-parser?tab=readme-ov-file#dvid-fovl-large-fov---lens-distortion
       //      If VFOV is Linear, distortion is already corrected so this function should return all zeros
       //      SuperView and HyperView use a nonlinear horizontal stretching algorithm (MXCF, MYCF, MAPX, MAPY)
-      //      (https://abekislevitz.com/43-gopro-footage-explained/), so there's no way to make them fully working with the
-      //      current framework.
+      //      (https://abekislevitz.com/43-gopro-footage-explained/), so there's no way to make them fully working with
+      //      the current framework.
       //      GoPro with Wide FOV has fisheye lens, so use sensor_msgs::distortion_models::EQUIDISTANT
       TimedMetadata<std::pair<DistortionType, Distortion>> msg;
       msg.stamp = time;
       msg.value.first = "test";
-      msg.value.second = {(double)time.sec, (double)time.nsec};
+      msg.value.second = {static_cast<double>(time.sec), static_cast<double>(time.nsec)};
       this->buffer.distortion.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::ROTATION) != req.end())
+    if (req.empty() || req.find(MetadataType::ROTATION) != req.end())
     {
       // TODO OREN, maybe IORI?
       TimedMetadata<int> msg;
@@ -663,7 +674,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       this->buffer.rotation.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::FOCAL_LENGTH_MM) != req.end())
+    if (req.empty() || req.find(MetadataType::FOCAL_LENGTH_MM) != req.end())
     {
       // TODO not sure where to get it, maybe a hard-coded table based on aspect ratio, lens mode and a static table
       //      per GoPro model from https://www.google.com/search?q=gopro+Digital+Lenses+FOV+Information ?
@@ -674,37 +685,37 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       this->buffer.focalLengthMM.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::FOCAL_LENGTH_35MM) != req.end())
+    if (req.empty() || req.find(MetadataType::FOCAL_LENGTH_35MM) != req.end())
     {
-      // TODO not sure where to get it; if it isn't anywhere, leave it out and let manager compute it from crop factor and
-      //      focal length in mm
+      // TODO not sure where to get it; if it isn't anywhere, leave it out and let manager compute it from crop factor
+      //      and focal length in mm
       TimedMetadata<double> msg;
       msg.stamp = time;
       msg.value = time.toRosTime().toSec();
       this->buffer.focalLength35MM.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::FOCAL_LENGTH_PX) != req.end())
+    if (req.empty() || req.find(MetadataType::FOCAL_LENGTH_PX) != req.end())
     {
-      // TODO not sure where to get it; if it isn't anywhere, leave it out and let manager compute it from sensor size and
-      //      focal length in mm
+      // TODO not sure where to get it; if it isn't anywhere, leave it out and let manager compute it from sensor size
+      //      and focal length in mm
       TimedMetadata<double> msg;
       msg.stamp = time;
       msg.value = time.toRosTime().toSec();
       this->buffer.focalLengthPx.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::INTRINSIC_MATRIX) != req.end())
+    if (req.empty() || req.find(MetadataType::INTRINSIC_MATRIX) != req.end())
     {
-      // TODO if neither calibration matrix K nor projection matrix P are defined, leave this out and let manager compute it
-      //      from pixel focal length and image dimensions
+      // TODO if neither calibration matrix K nor projection matrix P are defined, leave this out and let manager
+      //      compute it from pixel focal length and image dimensions
       TimedMetadata<IntrinsicMatrix> msg;
       msg.stamp = time;
       msg.value = {1.0 * time.sec, 1.0 * time.nsec, 1.0 * num, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
       this->buffer.intrinsicMatrix.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::AZIMUTH) != req.end())
+    if (req.empty() || req.find(MetadataType::AZIMUTH) != req.end())
     {
       // TODO compute from MAGN
       TimedMetadata<compass_msgs::Azimuth> msg;
@@ -713,7 +724,7 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       this->buffer.azimuth.emplace(msg);
     }
 
-    if (req.empty() || req.find(TimedMetadataType::MAGNETIC_FIELD) != req.end())
+    if (req.empty() || req.find(MetadataType::MAGNETIC_FIELD) != req.end())
     {
       // TODO
       TimedMetadata<sensor_msgs::MagneticField> msg;
@@ -723,7 +734,6 @@ void GPMFMetadataPrivate::processGpmdPacket(const AVPacket* packet)
       msg.value.magnetic_field.z = num;
       this->buffer.magneticField.emplace(msg);
     }
-
   }
 }
 
@@ -751,49 +761,92 @@ void GPMFMetadataPrivate::processTmcdPacket(const AVPacket* packet)
  * \param[in] maxTime Max time until which the metadata should be taken ouf the the buffer.
  */
 template<typename T>
-void processBuffer(std::queue<T>& bufferedData, cras::optional<T>& lastData,
+size_t proc(std::queue<T>& bufferedData, cras::optional<T>& lastData,
   void(TimedMetadataListener::*processFn)(const T&),
   const std::vector<std::shared_ptr<TimedMetadataListener>>& listeners, const StreamTime& maxTime)
 {
+  size_t numProcessed {0u};
   for (; !bufferedData.empty(); bufferedData.pop())
   {
     const auto& msg = bufferedData.front();
     if (msg.stamp > maxTime)
       break;
     lastData = msg;
+    numProcessed++;
     for (const auto& listener : listeners)
       (listener.get()->*processFn)(msg);
   }
+  return numProcessed;
 }
 
-void GPMFMetadataExtractor::processTimedMetadata(const StreamTime& maxTime)
+size_t GPMFMetadataExtractor::processTimedMetadata(
+  const MetadataType type, const StreamTime& maxTime, const bool requireOptional)
 {
-  TimedMetadataExtractor::processTimedMetadata(maxTime);
   CRAS_INFO_NAMED("gpmf", "process %s", cras::to_string(maxTime).c_str());
+
+  if (this->data->requestedTimedMetadata.count(type) == 0)
+    return 0;
 
   // Shorthands to keep the following code short.
   auto& buffer = this->data->buffer;
   auto& last = this->data->lastMetadata;
   auto& l = this->listeners;
   const auto& t = maxTime;
+  size_t n {0u};
 
-  processBuffer(buffer.cropFactor, last.cropFactor, &TimedMetadataListener::processCropFactor, l, t);
-  processBuffer(buffer.sensorSizeMM, last.sensorSizeMM, &TimedMetadataListener::processSensorSizeMM, l, t);
-  processBuffer(buffer.distortion, last.distortion, &TimedMetadataListener::processDistortion, l, t);
-  processBuffer(buffer.rotation, last.rotation, &TimedMetadataListener::processRotation, l, t);
-  processBuffer(buffer.focalLengthMM, last.focalLengthMM, &TimedMetadataListener::processFocalLengthMM, l, t);
-  processBuffer(buffer.focalLength35MM, last.focalLength35MM, &TimedMetadataListener::processFocalLength35MM, l, t);
-  processBuffer(buffer.focalLengthPx, last.focalLengthPx, &TimedMetadataListener::processFocalLengthPx, l, t);
-  processBuffer(buffer.intrinsicMatrix, last.intrinsicMatrix, &TimedMetadataListener::processIntrinsicMatrix, l, t);
-  processBuffer(buffer.azimuth, last.azimuth, &TimedMetadataListener::processAzimuth, l, t);
-  processBuffer(buffer.rollPitch, last.rollPitch, &TimedMetadataListener::processRollPitch, l, t);
-  processBuffer(buffer.fix, last.fix, &TimedMetadataListener::processGNSSPosition, l, t);
-  processBuffer(buffer.acceleration, last.acceleration, &TimedMetadataListener::processAcceleration, l, t);
-  processBuffer(buffer.magneticField, last.magneticField, &TimedMetadataListener::processMagneticField, l, t);
-  processBuffer(buffer.angularVelocity, last.angularVelocity, &TimedMetadataListener::processAngularVelocity, l, t);
-  processBuffer(buffer.faces, last.faces, &TimedMetadataListener::processFaces, l, t);
+  switch (type)
+  {
+  case MetadataType::CROP_FACTOR:
+    n += proc(buffer.cropFactor, last.cropFactor, &TimedMetadataListener::processCropFactor, l, t);
+    break;
+  case MetadataType::SENSOR_SIZE_MM:
+    n += proc(buffer.sensorSizeMM, last.sensorSizeMM, &TimedMetadataListener::processSensorSizeMM, l, t);
+    break;
+  case MetadataType::DISTORTION:
+    n += proc(buffer.distortion, last.distortion, &TimedMetadataListener::processDistortion, l, t);
+    break;
+  case MetadataType::ROTATION:
+    n += proc(buffer.rotation, last.rotation, &TimedMetadataListener::processRotation, l, t);
+    break;
+  case MetadataType::FOCAL_LENGTH_MM:
+    n += proc(buffer.focalLengthMM, last.focalLengthMM, &TimedMetadataListener::processFocalLengthMM, l, t);
+    break;
+  case MetadataType::FOCAL_LENGTH_35MM:
+    n += proc(buffer.focalLength35MM, last.focalLength35MM, &TimedMetadataListener::processFocalLength35MM, l, t);
+    break;
+  case MetadataType::FOCAL_LENGTH_PX:
+    n += proc(buffer.focalLengthPx, last.focalLengthPx, &TimedMetadataListener::processFocalLengthPx, l, t);
+    break;
+  case MetadataType::INTRINSIC_MATRIX:
+    n += proc(buffer.intrinsicMatrix, last.intrinsicMatrix, &TimedMetadataListener::processIntrinsicMatrix, l, t);
+    break;
+  case MetadataType::AZIMUTH:
+    n += proc(buffer.azimuth, last.azimuth, &TimedMetadataListener::processAzimuth, l, t);
+    break;
+  case MetadataType::ROLL_PITCH:
+    n += proc(buffer.rollPitch, last.rollPitch, &TimedMetadataListener::processRollPitch, l, t);
+    break;
+  case MetadataType::GNSS_POSITION:
+    n += proc(buffer.fix, last.fix, &TimedMetadataListener::processGNSSPosition, l, t);
+    break;
+  case MetadataType::ACCELERATION:
+    n += proc(buffer.acceleration, last.acceleration, &TimedMetadataListener::processAcceleration, l, t);
+    break;
+  case MetadataType::MAGNETIC_FIELD:
+    n += proc(buffer.magneticField, last.magneticField, &TimedMetadataListener::processMagneticField, l, t);
+    break;
+  case MetadataType::ANGULAR_VELOCITY:
+    n += proc(buffer.angularVelocity, last.angularVelocity, &TimedMetadataListener::processAngularVelocity, l, t);
+    break;
+  case MetadataType::FACES:
+    n += proc(buffer.faces, last.faces, &TimedMetadataListener::processFaces, l, t);
+    break;
+  default:
+    return 0;
+  }
 
   this->data->lastTime = maxTime;
+  return n;
 }
 
 void GPMFMetadataExtractor::seekTimedMetadata(const StreamTime& seekTime)
@@ -809,10 +862,11 @@ void GPMFMetadataExtractor::seekTimedMetadata(const StreamTime& seekTime)
 
 bool GPMFMetadataExtractor::hasTimedMetadata() const
 {
-  return !this->data->supportedTimedMetadata.empty();
+  return this->data->gpmdStreamIndex.has_value();
 }
 
-const std::unordered_map<TimedMetadataType, int>& GPMFMetadataExtractor::supportedTimedMetadata() const
+std::unordered_set<MetadataType> GPMFMetadataExtractor::supportedTimedMetadata(
+  const std::unordered_set<MetadataType>& availableMetadata) const
 {
   return this->data->supportedTimedMetadata;
 }
@@ -821,12 +875,12 @@ MetadataExtractor::Ptr GPMFMetadataExtractorPlugin::getExtractor(const MetadataE
 {
   if (params.log == nullptr || params.manager.lock() == nullptr)
     return nullptr;
-  if (params.info.width() == 0 || params.info.height() == 0)
+  if (params.info->width() == 0 || params.info->height() == 0)
     return nullptr;
 
   const int priority = 15;
   return std::make_shared<GPMFMetadataExtractor>(
-    params.log, params.manager, params.info.width(), params.info.height(), params.avFormatContext, priority);
+    params.log, params.manager, params.info->width(), params.info->height(), params.avFormatContext, priority);
 }
 
 }

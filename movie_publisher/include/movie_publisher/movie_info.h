@@ -191,6 +191,9 @@ struct MovieInfo final
    */
   void setMetadataRotation(int data);
 
+  using Ptr = std::shared_ptr<MovieInfo>;
+  using ConstPtr = std::shared_ptr<const MovieInfo>;
+
 private:
   struct Impl;
   std::unique_ptr<Impl> data;  //!< PIMPL data

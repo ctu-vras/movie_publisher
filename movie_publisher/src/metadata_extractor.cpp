@@ -33,9 +33,23 @@ void TimedMetadataExtractor::addTimedMetadataListener(const std::shared_ptr<Time
   this->listeners.emplace_back(listener);
 }
 
-void TimedMetadataExtractor::prepareTimedMetadata(const std::vector<TimedMetadataType>& requestedTypes)
+void TimedMetadataExtractor::prepareTimedMetadata(const std::unordered_set<MetadataType>& metadataTypes)
 {
-  this->requestedTimedMetadata = {requestedTypes.begin(), requestedTypes.end()};
+}
+
+size_t TimedMetadataExtractor::processTimedMetadata(
+  const MetadataType type, const StreamTime& maxTime, const bool requireOptional)
+{
+  return false;
+}
+
+void TimedMetadataExtractor::seekTimedMetadata(const StreamTime& seekTime)
+{
+}
+
+bool TimedMetadataExtractor::hasTimedMetadata() const
+{
+  return false;
 }
 
 }

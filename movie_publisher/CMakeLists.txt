@@ -47,6 +47,8 @@ find_package(Filesystem REQUIRED COMPONENTS Final Experimental Boost)
 
 pkg_check_modules(MUPARSER muparser REQUIRED IMPORTED_TARGET)
 
+find_package(magic_enum CONFIG REQUIRED)
+
 include_directories(include ${catkin_INCLUDE_DIRS})
 
 add_library(movie_reader_types
@@ -58,18 +60,18 @@ add_library(movie_reader_types
   src/parsing_utils.cpp
   src/types.cpp
 )
-target_link_libraries(movie_reader_types PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg PkgConfig::MUPARSER)
+target_link_libraries(movie_reader_types PUBLIC ${catkin_LIBRARIES} PRIVATE ffmpeg magic_enum::magic_enum PkgConfig::MUPARSER)
 
 add_library(movie_reader
   src/metadata/ExifBaseMetadataExtractor.cpp
   src/metadata_manager.cpp
   src/movie.cpp
   src/movie_metadata_processor.cpp
-  src/movie_reader.cpp
   src/movie_private.cpp
+  src/movie_reader.cpp
   src/movie_reader_ros.cpp
 )
-target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} movie_reader_types PRIVATE ffmpeg std::filesystem)
+target_link_libraries(movie_reader PUBLIC ${catkin_LIBRARIES} movie_reader_types PRIVATE ffmpeg magic_enum::magic_enum std::filesystem)
 
 add_library(movie_reader_metadata_plugins
   src/metadata/FileMetadataExtractor.cpp
@@ -77,6 +79,17 @@ add_library(movie_reader_metadata_plugins
   src/metadata/LibavStreamMetadataExtractor.cpp
 )
 target_link_libraries(movie_reader_metadata_plugins PUBLIC ${catkin_LIBRARIES} movie_reader PRIVATE ffmpeg std::filesystem)
+
+add_library(movie_reader_metadata_composers
+  src/composers/CameraInfoComposer.cpp
+  src/composers/CameraIntrinsicsComposer.cpp
+  src/composers/CameraNameComposer.cpp
+  src/composers/ImuComposer.cpp
+  src/composers/OpticalFrameTFComposer.cpp
+  src/composers/RollPitchComposer.cpp
+  src/composers/ZeroRollPitchTFComposer.cpp
+)
+target_link_libraries(movie_reader_metadata_composers PUBLIC ${catkin_LIBRARIES} movie_reader)
 
 add_library(movie_to_bag src/movie_to_bag.cpp)
 target_link_libraries(movie_to_bag PUBLIC movie_reader ${catkin_LIBRARIES} PRIVATE std::filesystem)
@@ -93,7 +106,7 @@ install(TARGETS movie_to_bag_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-install(TARGETS ${PROJECT_NAME}_nodelet movie_reader movie_reader_metadata_plugins movie_reader_types movie_to_bag
+install(TARGETS ${PROJECT_NAME}_nodelet movie_reader movie_reader_metadata_composers movie_reader_metadata_plugins movie_reader_types movie_to_bag
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
@@ -114,6 +127,7 @@ catkin_install_python(PROGRAMS
 
 install(FILES
   launch/${PROJECT_NAME}.launch  # This is wrong, but let's keep it for backwards compatibility
+  metadata_composers.xml
   metadata_plugins.xml
   nodelet.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}

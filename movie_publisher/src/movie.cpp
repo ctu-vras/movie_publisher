@@ -43,7 +43,7 @@ namespace movie_publisher
 Movie::Movie(const cras::LogHelperPtr& log, const MovieOpenConfig& config) :
   HasLogger(log), data(new MoviePrivate(log))
 {
-  this->data->config = config;
+  this->data->config = std::make_shared<MovieOpenConfig>(config);
   this->open().or_else([](const auto& error) {throw std::runtime_error(error);});
 }
 
@@ -51,11 +51,11 @@ cras::expected<void, std::string> Movie::open()
 {
   av_log_set_level(AV_LOG_WARNING);
 
-  const auto& config = this->data->config;
+  const auto& config = *this->data->config;
   auto& info = this->data->info;
 
-  info.setFilenameOrURL(config.filenameOrURL());
-  info.setTimestampSource(config.timestampSource());
+  info->setFilenameOrURL(config.filenameOrURL());
+  info->setTimestampSource(config.timestampSource());
 
   this->data->formatContext = avformat_alloc_context();
 
@@ -80,18 +80,18 @@ cras::expected<void, std::string> Movie::open()
   }
 
   const auto [codec, selectedStreamIndex] = *streamSelectResult;
-  info.setMovieStreamIndex(selectedStreamIndex);
-  info.setWidth(this->data->stream->codecpar->width);
-  info.setHeight(this->data->stream->codecpar->height);
-  info.setStreamStart(this->data->getStreamStart());
-  info.setStreamEnd(this->data->getStreamEnd());
-  info.setStreamDuration(this->data->getStreamDuration());
-  info.setDuration(this->data->getDuration());
+  info->setMovieStreamIndex(selectedStreamIndex);
+  info->setWidth(this->data->stream->codecpar->width);
+  info->setHeight(this->data->stream->codecpar->height);
+  info->setStreamStart(this->data->getStreamStart());
+  info->setStreamEnd(this->data->getStreamEnd());
+  info->setStreamDuration(this->data->getStreamDuration());
+  info->setDuration(this->data->getDuration());
   // Initialize subclip to the whole stream
-  info.setSubclipStart(info.streamStart());
-  info.setSubclipEnd(info.streamEnd());
-  info.setSubclipDuration(info.streamDuration());
-  this->data->playbackState.reset();
+  info->setSubclipStart(info->streamStart());
+  info->setSubclipEnd(info->streamEnd());
+  info->setSubclipDuration(info->streamDuration());
+  *this->data->playbackState = {};
 
   if (auto result = this->data->openCodec(codec); !result.has_value())
   {
@@ -99,10 +99,10 @@ cras::expected<void, std::string> Movie::open()
     return result;
   }
 
-  info.setIsSeekable(this->data->isSeekable());
-  info.setIsStillImage(this->data->isStillImage());
-  info.setFrameRate(this->data->getFrameRate());
-  info.setStreamNumFrames(this->data->getNumFrames());
+  info->setIsSeekable(this->data->isSeekable());
+  info->setIsStillImage(this->data->isStillImage());
+  info->setFrameRate(this->data->getFrameRate());
+  info->setStreamNumFrames(this->data->getNumFrames());
 
   this->data->detectTargetPixelFormat();
 
@@ -117,15 +117,15 @@ cras::expected<void, std::string> Movie::open()
   for (const auto& processor : config.metadataProcessors())
   {
     if (auto result = processor->onMetadataReady(this->data->metadataManager); !result.has_value())
-      CRAS_ERROR("Error in movie metadata processor onStaticMetadataRead() function: %s", result.error().c_str());
+      CRAS_ERROR("Error in movie metadata processor onMetadataReady() function: %s", result.error().c_str());
   }
 
-  info.setMetadataStartTime(this->data->metadataManager->getCreationTime().value_or(ros::Time{}));
-  info.setMetadataRotation(this->data->metadataManager->getRotation().value_or(0));
+  info->setMetadataStartTime(this->data->metadataManager->getCreationTime().value_or(ros::Time{}));
+  info->setMetadataRotation(this->data->metadataManager->getRotation().value_or(0));
 
   this->data->extractMetadata();
 
-  if (info.metadataRotation() != 0)
+  if (info->metadataRotation() != 0)
   {
     if (auto result = this->data->addRotationFilter(); !result.has_value())
     {
@@ -175,22 +175,22 @@ cras::expected<void, std::string> Movie::setSubClip(
   if (
     (end && start && *end <= *start) ||
     (duration && *duration <= StreamDuration{}) ||
-    (duration && !this->data->info.duration().isZero() && *duration > this->data->info.duration()) ||
-    (start && duration && !this->data->info.duration().isZero() &&
-      (*start + *duration) > (StreamTime(this->data->info.duration()))) ||
+    (duration && !this->data->info->duration().isZero() && *duration > this->data->info->duration()) ||
+    (start && duration && !this->data->info->duration().isZero() &&
+      (*start + *duration) > (StreamTime(this->data->info->duration()))) ||
     (end && duration && (*end < (StreamTime(*duration)))))
   {
     return cras::make_unexpected(
       "The provided combination of subclip start, end and duration is not consistent with the movie file.");
   }
 
-  if (!this->data->info.isSeekable() && start.has_value() && !start->isZero())
+  if (!this->data->info->isSeekable() && start.has_value() && !start->isZero())
     CRAS_WARN("Requested non-zero subclip start time, but the movie is not seekable. The performance will be bad.");
 
   StreamTime subclipStart {0, 0};
   StreamTime subclipEnd {0, 0};
-  if (!this->data->info.duration().isZero())
-    subclipEnd = subclipStart + this->data->info.duration();
+  if (!this->data->info->duration().isZero())
+    subclipEnd = subclipStart + this->data->info->duration();
 
   if (start)
     subclipStart = *start;
@@ -207,39 +207,39 @@ cras::expected<void, std::string> Movie::setSubClip(
       subclipEnd = subclipStart + *duration;
   }
 
-  if (!subclipStart.isZero() && !this->data->info.streamStart().isZero() &&
-      subclipStart < this->data->info.streamStart())
+  if (!subclipStart.isZero() && !this->data->info->streamStart().isZero() &&
+      subclipStart < this->data->info->streamStart())
     return cras::make_unexpected(cras::format("The requested subclip start time %s is before the stream start time %s",
-      cras::to_string(subclipStart).c_str(), cras::to_string(this->data->info.streamStart()).c_str()));
+      cras::to_string(subclipStart).c_str(), cras::to_string(this->data->info->streamStart()).c_str()));
 
-  if (!subclipEnd.isZero() && !this->data->info.streamEnd().isZero() && subclipEnd > this->data->info.streamEnd())
+  if (!subclipEnd.isZero() && !this->data->info->streamEnd().isZero() && subclipEnd > this->data->info->streamEnd())
     return cras::make_unexpected(cras::format("The requested subclip end time %s is after the stream end time %s",
-      cras::to_string(subclipEnd).c_str(), cras::to_string(this->data->info.streamEnd()).c_str()));
+      cras::to_string(subclipEnd).c_str(), cras::to_string(this->data->info->streamEnd()).c_str()));
 
-  this->data->info.setSubclipStart(subclipStart);
-  this->data->info.setSubclipEnd(subclipEnd);
-  this->data->info.setSubclipDuration(subclipEnd - subclipStart);
+  this->data->info->setSubclipStart(subclipStart);
+  this->data->info->setSubclipEnd(subclipEnd);
+  this->data->info->setSubclipDuration(subclipEnd - subclipStart);
 
   this->data->subclipStart = start;
   this->data->subclipEnd = end;
   this->data->subclipDuration = duration;
 
-  this->data->info.setSubclipNumFrames(static_cast<size_t>(
-    this->data->info.subclipDuration().toSec() * static_cast<double>(this->data->info.frameRate())));
+  this->data->info->setSubclipNumFrames(static_cast<size_t>(
+    this->data->info->subclipDuration().toSec() * static_cast<double>(this->data->info->frameRate())));
 
-  const auto streamTime = this->data->playbackState.streamTime();
-  if (streamTime >= this->data->info.subclipEnd() || streamTime < this->data->info.subclipStart())
+  const auto streamTime = this->data->playbackState->streamTime();
+  if (streamTime >= this->data->info->subclipEnd() || streamTime < this->data->info->subclipStart())
   {
-    return this->seek(this->data->info.subclipStart(), allowReopen);
+    return this->seek(this->data->info->subclipStart(), allowReopen);
   }
   else
   {
-    this->data->playbackState.setSubclipTime(StreamTime(streamTime - subclipStart));
+    this->data->playbackState->setSubclipTime(StreamTime(streamTime - subclipStart));
     const auto timeBase = this->data->stream->time_base;
     const auto streamPTS = streamTime.toStreamPTS(timeBase);
     const auto subclipStartPTS = subclipStart.toStreamPTS(timeBase);
-    this->data->playbackState.setSubclipFrameNum(
-      av_rescale_q(streamPTS - subclipStartPTS, timeBase, this->data->info.frameRate().av_q()));
+    this->data->playbackState->setSubclipFrameNum(
+      av_rescale_q(streamPTS - subclipStartPTS, timeBase, this->data->info->frameRate().av_q()));
   }
 
   return {};
@@ -247,7 +247,7 @@ cras::expected<void, std::string> Movie::setSubClip(
 
 void Movie::setTimestampOffset(const ros::Duration& offset)
 {
-  this->data->config.setTimestampOffset(offset);
+  this->data->config->setTimestampOffset(offset);
 }
 
 cras::expected<void, std::string> Movie::seek(const StreamTime& time)
@@ -259,10 +259,10 @@ cras::expected<void, std::string> Movie::seek(const StreamTime& time, const bool
 {
   const auto ts = time.toStreamPTS(this->data->stream->time_base);
 
-  if (this->data->info.isSeekable())
+  if (this->data->info->isSeekable())
   {
     const int res = avformat_seek_file(
-      this->data->formatContext, this->data->info.movieStreamIndex(), INT64_MIN, ts, ts, 0);
+      this->data->formatContext, this->data->info->movieStreamIndex(), INT64_MIN, ts, ts, 0);
     if (res < 0)
       return cras::make_unexpected(cras::format("Error seeking: %s", av_err2str(res)));
 
@@ -282,7 +282,7 @@ cras::expected<void, std::string> Movie::seek(const StreamTime& time, const bool
 
   this->data->metadataManager->seekTimedMetadata(time);
 
-  for (const auto& processor : this->data->config.metadataProcessors())
+  for (const auto& processor : this->data->config->metadataProcessors())
   {
     if (auto result = processor->onSeek(time); !result.has_value())
       CRAS_ERROR_THROTTLE(1.0, "Error calling MovieMetadataProcessor onSeek() callback: %s", result.error().c_str());
@@ -293,7 +293,7 @@ cras::expected<void, std::string> Movie::seek(const StreamTime& time, const bool
 
 cras::expected<void, std::string> Movie::seekInSubclip(const StreamTime& time)
 {
-  return this->seek(time + this->data->info.subclipStart().toDuration());
+  return this->seek(time + this->data->info->subclipStart().toDuration());
 }
 
 cras::expected<std::pair<MoviePlaybackState, sensor_msgs::ImageConstPtr>, std::string> Movie::nextFrame()
@@ -306,12 +306,12 @@ cras::expected<std::pair<MoviePlaybackState, sensor_msgs::ImageConstPtr>, std::s
     {
       if (res != AVERROR_EOF)
         return cras::make_unexpected(cras::format("av_read_frame failure: %s", av_err2str(res)));
-      this->data->playbackState.setMovieEnded(true);
-      return std::make_pair(this->data->playbackState, nullptr);
+      this->data->playbackState->setMovieEnded(true);
+      return std::make_pair(*this->data->playbackState, nullptr);
     }
 
     this->data->metadataManager->processPacket(packet.get());
-    if (packet->stream_index != this->data->info.movieStreamIndex())
+    if (packet->stream_index != this->data->info->movieStreamIndex())
       continue;
 
     // Send Packet for decoding
@@ -352,21 +352,21 @@ cras::expected<std::pair<MoviePlaybackState, sensor_msgs::ImageConstPtr>, std::s
 
       const auto timeBase = this->data->stream->time_base;
 
-      this->data->playbackState.setMovieStarted(true);
-      this->data->playbackState.setStreamTime({tmpFrame->pts, timeBase});
-      this->data->playbackState.setSubclipTime(
-        StreamTime(this->data->playbackState.streamTime() - this->data->info.subclipStart()));
+      this->data->playbackState->setMovieStarted(true);
+      this->data->playbackState->setStreamTime({tmpFrame->pts, timeBase});
+      this->data->playbackState->setSubclipTime(
+        StreamTime(this->data->playbackState->streamTime() - this->data->info->subclipStart()));
 
-      const AVRational framerate = this->data->info.frameRate().av_q();
-      this->data->playbackState.setFrameNum(av_rescale_q(tmpFrame->pts, timeBase, framerate));
-      const auto ts = this->data->info.subclipStart().toStreamPTS(timeBase);
-      this->data->playbackState.setSubclipFrameNum(av_rescale_q(tmpFrame->pts - ts, timeBase, framerate));
+      const AVRational framerateInv = av_inv_q(this->data->info->frameRate().av_q());
+      this->data->playbackState->setFrameNum(av_rescale_q(tmpFrame->pts, timeBase, framerateInv));
+      const auto ts = this->data->info->subclipStart().toStreamPTS(timeBase);
+      this->data->playbackState->setSubclipFrameNum(av_rescale_q(tmpFrame->pts - ts, timeBase, framerateInv));
 
       AVFramePtr frame(av_frame_alloc());
       sensor_msgs::ImagePtr msg(new sensor_msgs::Image);
-      msg->header.frame_id = this->data->config.opticalFrameId();
-      msg->header.stamp = this->data->getTimestamp(this->data->playbackState.streamTime());
-      this->data->playbackState.setRosTime(msg->header.stamp);
+      msg->header.frame_id = this->data->config->opticalFrameId();
+      msg->header.stamp = this->data->getTimestamp(this->data->playbackState->streamTime());
+      this->data->playbackState->setRosTime(msg->header.stamp);
 
       const auto maybeEncoding = avPixFmtToRosEncoding(this->data->targetPixelFormat);
       if (maybeEncoding.has_value())
@@ -377,7 +377,7 @@ cras::expected<std::pair<MoviePlaybackState, sensor_msgs::ImageConstPtr>, std::s
         msg->encoding = sensor_msgs::image_encodings::BGR8;
       }
 
-      if (this->data->info.metadataRotation() != 0.0)
+      if (this->data->info->metadataRotation() != 0.0)
       {
         res = av_buffersrc_add_frame(this->data->filterBuffersrcContext, tmpFrame.get());
         if (res < 0)
@@ -410,15 +410,15 @@ cras::expected<std::pair<MoviePlaybackState, sensor_msgs::ImageConstPtr>, std::s
       for (const int size : frame->linesize)
         msg->step += size;
 
-      this->data->updateMetadata(this->data->playbackState.streamTime());
+      this->data->updateMetadata(this->data->playbackState->streamTime());
 
-      for (const auto& processor : this->data->config.metadataProcessors())
+      for (const auto& processor : this->data->config->metadataProcessors())
       {
-        if (auto result = processor->processFrame(msg, this->data->playbackState); !result.has_value())
+        if (auto result = processor->processFrame(msg, *this->data->playbackState); !result.has_value())
           CRAS_ERROR_THROTTLE(1.0, "Error running MovieMetadataProcessor processFrame(): %s", result.error().c_str());
       }
 
-      return std::make_pair(this->data->playbackState, msg);
+      return std::make_pair(*this->data->playbackState, msg);
     }
   }
 }
@@ -427,14 +427,14 @@ void Movie::close()
 {
   CRAS_DEBUG("Closing movie.");
 
-  for (const auto& processor : this->data->config.metadataProcessors())
+  for (const auto& processor : this->data->config->metadataProcessors())
   {
     if (auto result = processor->onClose(); !result.has_value())
       CRAS_ERROR_THROTTLE(1.0, "Error running MovieMetadataProcessor onClose(): %s", result.error().c_str());
   }
 
-  this->data->info = {};
-  this->data->playbackState.reset();
+  *this->data->info = {};
+  *this->data->playbackState = {};
   this->data->seekRequest.reset();
   this->data->imageBufferSize = 0;
   this->data->filterBuffersrcContext = nullptr;
@@ -446,24 +446,24 @@ void Movie::close()
   avformat_close_input(&this->data->formatContext);
 }
 
-const MovieInfo& Movie::info() const
+MovieInfo::ConstPtr Movie::info() const
 {
   return this->data->info;
 }
 
-MovieInfo& Movie::_info()
+MovieInfo::Ptr Movie::_info()
 {
   return this->data->info;
 }
 
 const MovieOpenConfig& Movie::config() const
 {
-  return this->data->config;
+  return *this->data->config;
 }
 
 MovieOpenConfig& Movie::_config()
 {
-  return this->data->config;
+  return *this->data->config;
 }
 
 MetadataExtractor::Ptr Movie::staticMetadata() const
@@ -471,12 +471,12 @@ MetadataExtractor::Ptr Movie::staticMetadata() const
   return this->data->metadataManager;
 }
 
-const MoviePlaybackState& Movie::playbackState() const
+MoviePlaybackState::ConstPtr Movie::playbackState() const
 {
   return this->data->playbackState;
 }
 
-MoviePlaybackState& Movie::_playbackState()
+MoviePlaybackState::Ptr Movie::_playbackState()
 {
   return this->data->playbackState;
 }

@@ -161,7 +161,7 @@ MetadataExtractor::Ptr CamInfoManagerMetadataExtractorPlugin::getExtractor(const
   }
 
   return std::make_shared<CamInfoManagerMetadataExtractor>(
-    params.log, params.manager, params.info.width(), params.info.height(), calibrationURLs);
+    params.log, params.manager, params.info->width(), params.info->height(), calibrationURLs);
 }
 
 }
