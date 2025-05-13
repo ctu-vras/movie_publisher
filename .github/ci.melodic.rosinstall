@@ -12,4 +12,4 @@
 - git:
     local-name: magic_enum
     uri: https://github.com/Neargye/magic_enum.git
-    version: master
+    version: 98ffd0e29b872f15d8b4c1cc344c1568b6c57263
