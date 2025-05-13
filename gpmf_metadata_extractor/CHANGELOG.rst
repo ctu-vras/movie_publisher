@@ -5,8 +5,8 @@
 Changelog for package gpmf_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.2 (2025-05-13)
+------------------
 * Fixed the extractor, working unit test.
   Static metadata not supported yet.
 * Contributors: Martin Pecka

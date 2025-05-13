@@ -5,8 +5,8 @@
 Changelog for package movie_publisher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.2 (2025-05-13)
+------------------
 * Added ROS parameters allowed_extractors and excluded_extractors.
 * Contributors: Martin Pecka
 

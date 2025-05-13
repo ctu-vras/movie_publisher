@@ -3,7 +3,7 @@
 <!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
 <package format="3">
   <name>camera_info_manager_lib</name>
-  <version>3.0.1</version>
+  <version>3.0.2</version>
   <description>camera_info_manager API without an active ROS node.</description>
 
   <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>
