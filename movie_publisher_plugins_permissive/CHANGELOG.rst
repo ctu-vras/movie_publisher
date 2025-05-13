@@ -5,6 +5,9 @@
 Changelog for package movie_publisher_plugins_permissive
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.0.1 (2025-05-13)
 ------------------
 
