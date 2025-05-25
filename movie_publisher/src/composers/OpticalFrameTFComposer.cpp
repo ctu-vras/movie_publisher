@@ -90,6 +90,9 @@ public:
 
   size_t processTimedMetadata(const MetadataType type, const StreamTime& maxTime, const bool requireOptional) override
   {
+    if (type != MetadataType::OPTICAL_FRAME_TF)
+      return 0;
+
     const auto& rotations = this->cache->timed.rotation();
 
     if (rotations.empty())
