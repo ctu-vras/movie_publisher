@@ -99,8 +99,9 @@ protected:
 };
 }
 
-std::pair<movie_publisher::MetadataExtractor::Ptr, movie_publisher::MoviePtr> getExtractor(
-  const std::string& filename, const size_t width, const size_t height, const bool isStillImage,
+std::tuple<
+  movie_publisher::MetadataExtractor::Ptr, movie_publisher::MoviePtr, std::shared_ptr<movie_publisher::TestProcessor>>
+getExtractor(const std::string& filename, const size_t width, const size_t height, const bool isStillImage,
   const size_t videoStreamIndex)
 {
   // auto log = std::make_shared<cras::MemoryLogHelper>();
@@ -127,12 +128,12 @@ std::pair<movie_publisher::MetadataExtractor::Ptr, movie_publisher::MoviePtr> ge
     throw std::runtime_error("Failed to open file " + filename);
 
   auto extractor = maybeMovie.value()->staticMetadata();
-  return {extractor, *maybeMovie};
+  return {extractor, *maybeMovie, processor};
 }
 
 TEST(GPMFMetadataExtractor, FairphoneStill)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/fairphone/IMG_20241125_024757.jpg", 4000, 3000, true, 0);
+  auto [m, f, p] = getExtractor(std::string(TEST_DATA_DIR) + "/fairphone/IMG_20241125_024757.jpg", 4000, 3000, true, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -156,7 +157,8 @@ TEST(GPMFMetadataExtractor, FairphoneStill)  // NOLINT
 
 TEST(GPMFMetadataExtractor, FairphoneMovie)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4", 1920, 1080, false, 0);
+  auto [m, f, p] = getExtractor(
+    std::string(TEST_DATA_DIR) + "/fairphone/VID_20240815_143536.mp4", 1920, 1080, false, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -179,7 +181,7 @@ TEST(GPMFMetadataExtractor, FairphoneMovie)  // NOLINT
 
 TEST(GPMFMetadataExtractor, LumixStill)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260334.JPG", 4592, 3448, true, 0);
+  auto [m, f, p] = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260334.JPG", 4592, 3448, true, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -203,7 +205,7 @@ TEST(GPMFMetadataExtractor, LumixStill)  // NOLINT
 
 TEST(GPMFMetadataExtractor, LumixMovie)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260657.MP4", 1920, 1080, false, 0);
+  auto [m, f, p] = getExtractor(std::string(TEST_DATA_DIR) + "/lumix/P1260657.MP4", 1920, 1080, false, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -226,7 +228,8 @@ TEST(GPMFMetadataExtractor, LumixMovie)  // NOLINT
 
 TEST(GPMFMetadataExtractor, FfmpegProcessed)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/ffmpeg_processed/P1320029.MP4.mp4", 1920, 1080, false, 0);
+  auto [m, f, p] = getExtractor(
+    std::string(TEST_DATA_DIR) + "/ffmpeg_processed/P1320029.MP4.mp4", 1920, 1080, false, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -249,7 +252,8 @@ TEST(GPMFMetadataExtractor, FfmpegProcessed)  // NOLINT
 
 TEST(GPMFMetadataExtractor, IphoneStill)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/iphone/20241005_160034_IMG_4998.jpg", 4032, 3024, true, 0);
+  auto [m, f, p] = getExtractor(
+    std::string(TEST_DATA_DIR) + "/iphone/20241005_160034_IMG_4998.jpg", 4032, 3024, true, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -273,7 +277,7 @@ TEST(GPMFMetadataExtractor, IphoneStill)  // NOLINT
 
 TEST(GPMFMetadataExtractor, IphoneMovie)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/iphone/IMG_2585.MOV", 1920, 1080, false, 0);
+  auto [m, f, p] = getExtractor(std::string(TEST_DATA_DIR) + "/iphone/IMG_2585.MOV", 1920, 1080, false, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -296,7 +300,7 @@ TEST(GPMFMetadataExtractor, IphoneMovie)  // NOLINT
 
 TEST(GPMFMetadataExtractor, GoproMovie)  // NOLINT
 {
-  auto [m, f] = getExtractor(std::string(TEST_DATA_DIR) + "/gopro/GX010017.MP4", 1920, 1080, false, 0);
+  auto [m, f, p] = getExtractor(std::string(TEST_DATA_DIR) + "/gopro/GX010017.MP4", 1920, 1080, false, 0);
 
   EXPECT_FALSE(m->getRotation());
   EXPECT_FALSE(m->getCreationTime());
@@ -332,17 +336,49 @@ TEST(GPMFMetadataExtractor, GoproMovie)  // NOLINT
   EXPECT_FALSE(m->getFocalLength35MM());
   EXPECT_FALSE(m->getFocalLengthMM());
   EXPECT_FALSE(m->getFocalLengthPx());
-  // ASSERT_TRUE(m->getRollPitch());
-  EXPECT_FALSE(m->getAcceleration());
   EXPECT_FALSE(m->getAzimuth());
-  auto [nav2, gps2] = m->getGNSSPosition();
-  EXPECT_FALSE(nav2); EXPECT_FALSE(gps2);
 
-  auto proc = std::dynamic_pointer_cast<movie_publisher::TestProcessor>(f->config().metadataProcessors()[0]);
-  EXPECT_EQ(proc->cache.faces().size(), 2);
-  EXPECT_GT(proc->cache.imu().size(), 2000);
-  EXPECT_GT(proc->cache.zeroRollPitchTF().size(), 400);
-  EXPECT_GT(proc->cache.gnssPosition().size(), 90);
+  ASSERT_TRUE(m->getRollPitch());
+  movie_publisher::RollPitch rollPitch = {1.7528145617175948, -0.006378618691304158};
+  EXPECT_EQ(rollPitch, *m->getRollPitch());
+
+  ASSERT_TRUE(m->getAcceleration());
+  geometry_msgs::Vector3 acceleration;
+  acceleration.x = 12.359712230215827;
+  acceleration.y = 0.45563549160671463;
+  acceleration.z = -0.079136690647482008;
+  EXPECT_EQ(acceleration, *m->getAcceleration());
+
+  auto [nav2, gps2] = m->getGNSSPosition();
+  ASSERT_TRUE(nav2); ASSERT_TRUE(gps2);
+
+  sensor_msgs::NavSatFix refNav2;
+  refNav2.latitude = 50.075627500000003;
+  refNav2.longitude = 14.417331600000001;
+  refNav2.altitude = 149.74100000000001;
+  EXPECT_EQ(refNav2, *nav2);
+
+  gps_common::GPSFix refGps2;
+  refGps2.latitude = 50.075627500000003;
+  refGps2.longitude = 14.417331600000001;
+  refGps2.altitude = 149.74100000000001;
+  refGps2.speed = 0.30099999999999999;
+  refGps2.gdop = 99.989999999999995;
+  EXPECT_EQ(refGps2, *gps2);
+
+  vision_msgs::Detection2D refFace;
+  refFace.bbox.center.x = 1211.986266880293;
+  refFace.bbox.center.y = 190.98374914167999;
+  refFace.bbox.size_x = 129.99221789883268;
+  refFace.bbox.size_y = 105.99771114671549;
+  ASSERT_TRUE(m->getFaces());
+  ASSERT_EQ(1u, m->getFaces()->detections.size());
+  EXPECT_EQ(refFace, m->getFaces()->detections[0]);
+
+  EXPECT_EQ(p->cache.faces().size(), 2);
+  EXPECT_GT(p->cache.imu().size(), 2000);
+  EXPECT_GT(p->cache.zeroRollPitchTF().size(), 400);
+  EXPECT_GT(p->cache.gnssPosition().size(), 90);
 }
 
 int main(int argc, char **argv)
