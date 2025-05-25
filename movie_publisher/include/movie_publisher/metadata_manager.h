@@ -145,6 +145,19 @@ protected:
    */
   bool stopRecursion(const std::string& fn, const MetadataExtractor* extractor) const;
 
+  /**
+   * \brief Call the given function in all extractors and return and cache the first valid result.
+   * \tparam T Type of the metadata (including cras::optional<>).
+   * \tparam O Always cras::optional<T>. This parameter is only added to help template resolution.
+   * \param[in] func Name of the calling function (used in call stack, should be unique per call site).
+   * \param[in] getFn Function that gets the metadata value by calling this manager.
+   * \param[in] getFnLatest Function that reads the metadata value from latest values cache.
+   * \param[in] frame Optional frame_id to be set to the extracted messages (only if they don't specify any frame).
+   */
+  template<typename T, typename O = cras::optional<T>>
+  T checkExtractors(const std::string& func,
+    T(MetadataExtractor::*getFn)(), O(LatestMetadataCache::*getFnLatest)(), const std::string& frame = "");
+
   pluginlib::ClassLoader<MetadataExtractorPlugin> loader;  //!< The extractor plugin loader.
   std::multiset<MetadataExtractor::Ptr, PriorityComparator> extractors;  //!< Registered extractor instances.
   //! Registered timed extractor instances.

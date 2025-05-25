@@ -31,69 +31,134 @@ namespace movie_publisher
 #define STACK_SKIP_NON_OVERRIDEN 0
 
 #if STACK_VERBOSE
-#define CHECK_CACHE_DEBUG_PRINT(getFn) \
-  CRAS_DEBUG_NAMED("metadata_manager", "Returned " #getFn " value from result cache.")
+void checkCacheDebugPrint(const std::string& func)
+{
+  CRAS_DEBUG_NAMED("metadata_manager", "Returned %s value from result cache.", func.c_str());
+}
 #else
-#define CHECK_CACHE_DEBUG_PRINT(getFn)
+void checkCacheDebugPrint(const std::string&) {}
 #endif
 
-/**
- * \brief Check if the function call result has already been cached. If so, return the cached result.
- * \param[in] getFn Name of the function.
- */
-#define CHECK_CACHE(getFn) \
-  if (this->cache->latest.getFn().has_value()) { \
-    CHECK_CACHE_DEBUG_PRINT(getFn); \
-    return this->cache->latest.getFn().value(); \
-  }
-
-// Enable the first branch to simplify the debugging outputs of stack by removing calls to non-overriden functions.
+// Enable the first branch to simplify the debugging outputs of stack by removing calls to non-overridden functions.
 // The expression uses a GCC extension and some IDEs have a problem with it, so it is disabled by default.
-#if STACK_SKIP_NON_OVERRIDEN
-#define FUNCTION_HAS_OVERRIDE(extractor, getFn) \
-  ((void*)(extractor.get()->*(&MetadataExtractor::getFn)) == (void*)(&MetadataExtractor::getFn))  // NOLINT
+#if STACK_SKIP_NON_OVERRIDEN && defined __GNUC__
+template<typename T, typename M>
+bool functionHasOverride(M* extractor, T(M::*getFn)())
+{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpmf-conversions"
+  return (reinterpret_cast<void*>(extractor->*getFn) != reinterpret_cast<void*>(getFn));  // NOLINT
+#pragma GCC diagnostic pop
+}
 #else
-#define FUNCTION_HAS_OVERRIDE(extractor, getFn) (true)
+template<typename T, typename M>
+bool functionHasOverride(M*, T(M::*)())
+{
+  return true;
+}
 #endif
 
+template<typename T>
+bool hasValue(const T& msg)
+{
+  return msg.has_value();
+}
+template<>
+bool hasValue(const GNSSFixAndDetail& msg)
+{
+  return msg.first.has_value() || msg.second.has_value();
+}
+
+template<typename T, std::enable_if_t<!ros::message_traits::HasHeader<T>::value>* = nullptr>
+std::string getFrameId(const cras::optional<T>&)
+{
+  return "";
+}
+template<typename T, std::enable_if_t<ros::message_traits::HasHeader<T>::value>* = nullptr>
+std::string getFrameId(const cras::optional<T>& msg)
+{
+  return *ros::message_traits::frameId(*msg);
+}
+template<typename = GNSSFixAndDetail>
+std::string getFrameId(const GNSSFixAndDetail& msg)
+{
+  if (msg.first.has_value() && !msg.first->header.frame_id.empty())
+    return msg.first->header.frame_id;
+  if (msg.second.has_value() && !msg.second->header.frame_id.empty())
+    return msg.second->header.frame_id;
+  return "";
+}
+
+template<typename T, std::enable_if_t<!ros::message_traits::HasHeader<T>::value>* = nullptr>
+void setFrameId(cras::optional<T>&, const std::string&)
+{
+}
+template<typename T, std::enable_if_t<ros::message_traits::HasHeader<T>::value>* = nullptr>
+void setFrameId(cras::optional<T>& msg, const std::string& frameId)
+{
+  *ros::message_traits::frameId(*msg) = frameId;
+}
+template<typename = GNSSFixAndDetail>
+void setFrameId(GNSSFixAndDetail& msg, const std::string& frameId)
+{
+  if (msg.first.has_value())
+  {
+    msg.first->header.frame_id = frameId;
+  }
+  if (msg.second.has_value())
+  {
+    msg.second->header.frame_id = frameId;
+    msg.second->status.header.frame_id = frameId;
+  }
+}
+
+template<typename T, typename O = cras::optional<T>>
+T MetadataManager::checkExtractors(const std::string& func,
+  T(MetadataExtractor::*getFn)(), O(LatestMetadataCache::*getFnLatest)(), const std::string& frame)
+{
+  if ((this->cache->latest.*getFnLatest)().has_value())
+  {
+    checkCacheDebugPrint(func);
+    return (this->cache->latest.*getFnLatest)().value();
+  }
+  if (this->stopRecursion(func, this))
+    return T{};
+
+  StackGuard stackGuard1(this->callStack, func, this);
+  for (const auto& extractor : this->extractors)
+  {
+    if (this->stopRecursion(func, extractor.get()))
+      continue;
+    if (!functionHasOverride(extractor.get(), getFn))
+      continue;
+    StackGuard stackGuard2(this->callStack, func, extractor.get());
+    auto val = (extractor.get()->*getFn)();
+    if (hasValue(val))
+    {
+      if (!frame.empty() && getFrameId(val).empty())
+        setFrameId(val, frame);
+
+      (this->cache->latest.*getFnLatest)() = val;
+      return val;
+    }
+  }
+  return (this->cache->latest.*getFnLatest)().emplace(T{});
+}
+
 /**
- * \brief Call the given function in all extractors and return and cache the first valid result.
+ * \brief Call the requested function on the registered extractors and cache.
  * \param[in] getFn Name of the function.
  */
 #define CHECK_EXTRACTORS(getFn) \
-  CHECK_CACHE(getFn) \
-  if (this->stopRecursion(__func__, this)) \
-    return cras::nullopt; \
-  StackGuard stackGuard1(this->callStack, __func__, this); \
-  for (const auto& extractor : this->extractors) \
-  {\
-    if (this->stopRecursion(__func__, extractor.get())) \
-      continue; \
-    if (!FUNCTION_HAS_OVERRIDE(extractor, getFn)) \
-      continue; \
-    StackGuard stackGuard2(this->callStack, __func__, extractor.get()); \
-    const auto& val = extractor->getFn(); \
-    if (val.has_value()) \
-    { \
-      this->cache->latest.getFn() = val; \
-      return val; \
-    }\
-  }
+  return checkExtractors(__func__, &MetadataExtractor::getFn, &LatestMetadataCache::getFn);
 
 /**
- * \brief Last statement. Call when extracting data from all extractors failed and nothing is cached.
- * \param[in] getFn The function name.
- */
-#define FINISH(getFn) \
-  return this->cache->latest.getFn().emplace(cras::nullopt);
-
-/**
- * \brief Call the requested function only on the registered extractors and cache, nothing more.
+ * \brief Call the requested function on the registered extractors and cache.
  * \param[in] getFn Name of the function.
+ * \param[in] frame If the metadata to be returned contain a frame_id and it is empty, set it to this value.
  */
-#define ONLY_CHECK_EXTRACTORS(getFn) \
-  CHECK_EXTRACTORS(getFn) \
-  FINISH(getFn)
+#define CHECK_EXTRACTORS_WITH_FRAME(getFn, frame) \
+  return checkExtractors(__func__, &MetadataExtractor::getFn, &LatestMetadataCache::getFn, frame);
 
 /**
  * \brief A proxy for multiple metadata listeners that caches the data passed to their callbacks.
@@ -182,6 +247,7 @@ struct CachingMetadataListener : public TimedMetadataListener
   void processRollPitch(const TimedMetadata<RollPitch>& data) override
   {
     this->cache->timed.rollPitch().push_back(data);
+    this->cache->latest.getRollPitch() = data.value;
     for (const auto& listener : this->listeners)
       listener->processRollPitch(data);
   }
@@ -209,6 +275,7 @@ struct CachingMetadataListener : public TimedMetadataListener
   void processCameraInfo(const TimedMetadata<sensor_msgs::CameraInfo>& data) override
   {
     this->cache->timed.cameraInfo().push_back(data);
+    this->cache->latest.getCameraInfo() = data.value;
     for (const auto& listener : this->listeners)
       listener->processCameraInfo(data);
   }
@@ -418,150 +485,136 @@ void MetadataManager::processPacket(const AVPacket* packet)
 
 cras::optional<std::string> MetadataManager::getCameraGeneralName()
 {
-  ONLY_CHECK_EXTRACTORS(getCameraGeneralName);
+  CHECK_EXTRACTORS(getCameraGeneralName);
 }
 
 cras::optional<std::string> MetadataManager::getCameraUniqueName()
 {
-  ONLY_CHECK_EXTRACTORS(getCameraUniqueName);
+  CHECK_EXTRACTORS(getCameraUniqueName);
 }
 
 cras::optional<std::string> MetadataManager::getCameraSerialNumber()
 {
-  ONLY_CHECK_EXTRACTORS(getCameraSerialNumber);
+  CHECK_EXTRACTORS(getCameraSerialNumber);
 }
 
 cras::optional<std::string> MetadataManager::getCameraMake()
 {
-  ONLY_CHECK_EXTRACTORS(getCameraMake);
+  CHECK_EXTRACTORS(getCameraMake);
 }
 
 cras::optional<std::string> MetadataManager::getCameraModel()
 {
-  ONLY_CHECK_EXTRACTORS(getCameraModel);
+  CHECK_EXTRACTORS(getCameraModel);
 }
 
 cras::optional<std::string> MetadataManager::getLensMake()
 {
-  ONLY_CHECK_EXTRACTORS(getLensMake);
+  CHECK_EXTRACTORS(getLensMake);
 }
 
 cras::optional<std::string> MetadataManager::getLensModel()
 {
-  ONLY_CHECK_EXTRACTORS(getLensModel);
+  CHECK_EXTRACTORS(getLensModel);
 }
 
 cras::optional<int> MetadataManager::getRotation()
 {
-  ONLY_CHECK_EXTRACTORS(getRotation);
+  CHECK_EXTRACTORS(getRotation);
 }
 
 cras::optional<ros::Time> MetadataManager::getCreationTime()
 {
-  ONLY_CHECK_EXTRACTORS(getCreationTime);
+  CHECK_EXTRACTORS(getCreationTime);
 }
 
 cras::optional<double> MetadataManager::getCropFactor()
 {
-  ONLY_CHECK_EXTRACTORS(getCropFactor);
+  CHECK_EXTRACTORS(getCropFactor);
 }
 
 cras::optional<SensorSize> MetadataManager::getSensorSizeMM()
 {
-  ONLY_CHECK_EXTRACTORS(getSensorSizeMM)
+  CHECK_EXTRACTORS(getSensorSizeMM)
 }
 
 cras::optional<double> MetadataManager::getFocalLength35MM()
 {
-  ONLY_CHECK_EXTRACTORS(getFocalLength35MM)
+  CHECK_EXTRACTORS(getFocalLength35MM)
 }
 cras::optional<double> MetadataManager::getFocalLengthPx()
 {
-  ONLY_CHECK_EXTRACTORS(getFocalLengthPx)
+  CHECK_EXTRACTORS(getFocalLengthPx)
 }
 
 cras::optional<double> MetadataManager::getFocalLengthMM()
 {
-  ONLY_CHECK_EXTRACTORS(getFocalLengthMM);
+  CHECK_EXTRACTORS(getFocalLengthMM);
 }
 
 cras::optional<IntrinsicMatrix> MetadataManager::getIntrinsicMatrix()
 {
-  ONLY_CHECK_EXTRACTORS(getIntrinsicMatrix);
+  CHECK_EXTRACTORS(getIntrinsicMatrix);
 }
 
 cras::optional<std::pair<DistortionType, Distortion>> MetadataManager::getDistortion()
 {
-  ONLY_CHECK_EXTRACTORS(getDistortion);
+  CHECK_EXTRACTORS(getDistortion);
 }
 
 GNSSFixAndDetail MetadataManager::getGNSSPosition()
 {
-  CHECK_CACHE(getGNSSPosition)
-  StackGuard g(this->callStack, __func__, this);
-
-  std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>> result;
-  for (const auto& extractor : this->extractors)
-  {
-    const auto& [navMsg, gpsMsg] = extractor->getGNSSPosition();
-    if (!result.first.has_value() && navMsg.has_value())
-      result.first = navMsg;
-    if (!result.second.has_value() && gpsMsg.has_value())
-      result.second = gpsMsg;
-    if (result.first.has_value() && result.second.has_value())
-      break;
-  }
-  return this->cache->latest.getGNSSPosition().emplace(result);
+  CHECK_EXTRACTORS_WITH_FRAME(getGNSSPosition, this->config.frameId());
 }
 
 cras::optional<sensor_msgs::MagneticField> MetadataManager::getMagneticField()
 {
-  ONLY_CHECK_EXTRACTORS(getMagneticField);
+  CHECK_EXTRACTORS_WITH_FRAME(getMagneticField, this->config.frameId());
 }
 
 cras::optional<compass_msgs::Azimuth> MetadataManager::getAzimuth()
 {
   // TODO(peci1) compute from magnetic field and roll/pitch
-  ONLY_CHECK_EXTRACTORS(getAzimuth);
+  CHECK_EXTRACTORS_WITH_FRAME(getAzimuth, this->config.frameId());
 }
 
 cras::optional<RollPitch> MetadataManager::getRollPitch()
 {
-  ONLY_CHECK_EXTRACTORS(getRollPitch);
+  CHECK_EXTRACTORS(getRollPitch);
 }
 
 cras::optional<geometry_msgs::Vector3> MetadataManager::getAngularVelocity()
 {
-  ONLY_CHECK_EXTRACTORS(getAngularVelocity);
+  CHECK_EXTRACTORS(getAngularVelocity);
 }
 
 cras::optional<geometry_msgs::Vector3> MetadataManager::getAcceleration()
 {
-  ONLY_CHECK_EXTRACTORS(getAcceleration);
+  CHECK_EXTRACTORS(getAcceleration);
 }
 
 cras::optional<vision_msgs::Detection2DArray> MetadataManager::getFaces()
 {
-  ONLY_CHECK_EXTRACTORS(getFaces);
+  CHECK_EXTRACTORS_WITH_FRAME(getFaces, this->config.opticalFrameId());
 }
 
 cras::optional<sensor_msgs::CameraInfo> MetadataManager::getCameraInfo()
 {
-  ONLY_CHECK_EXTRACTORS(getCameraInfo)
+  CHECK_EXTRACTORS_WITH_FRAME(getCameraInfo, this->config.opticalFrameId());
 }
 
 cras::optional<sensor_msgs::Imu> MetadataManager::getImu()
 {
-  ONLY_CHECK_EXTRACTORS(getImu)
+  CHECK_EXTRACTORS_WITH_FRAME(getImu, this->config.frameId());
 }
 
 cras::optional<geometry_msgs::Transform> MetadataManager::getOpticalFrameTF()
 {
-  ONLY_CHECK_EXTRACTORS(getOpticalFrameTF)
+  CHECK_EXTRACTORS(getOpticalFrameTF)
 }
 
 cras::optional<geometry_msgs::Transform> MetadataManager::getZeroRollPitchTF()
 {
-  ONLY_CHECK_EXTRACTORS(getZeroRollPitchTF)
+  CHECK_EXTRACTORS(getZeroRollPitchTF)
 }
 }
