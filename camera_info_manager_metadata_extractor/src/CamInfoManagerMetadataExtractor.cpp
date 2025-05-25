@@ -32,6 +32,29 @@ struct CamInfoManagerMetadataPrivate : public cras::HasLogger
   size_t width {0u};
   size_t height {0u};
 
+  cras::optional<sensor_msgs::CameraInfo> cameraInfoRotate(const cras::optional<sensor_msgs::CameraInfo>& info) const
+  {
+    if (!info.has_value())
+      return cras::nullopt;
+
+    const auto manager = this->manager.lock();
+    if (manager == nullptr)
+      return cras::nullopt;
+
+    const auto rotation = manager->getRotation().value_or(0);
+    if (rotation == 0 || rotation == 180)
+      return info;
+
+    auto rotated = *info;
+    std::swap(rotated.K[0 * 3 + 0], rotated.K[1 * 3 + 1]);
+    std::swap(rotated.K[0 * 3 + 2], rotated.K[1 * 3 + 2]);
+    std::swap(rotated.P[0 * 4 + 0], rotated.P[1 * 4 + 1]);
+    std::swap(rotated.P[0 * 4 + 2], rotated.P[1 * 4 + 2]);
+    std::swap(rotated.width, rotated.height);
+
+    return rotated;
+  }
+
   /**
    * \brief Search for and retrieve the camera info corresponding to the current movie.
    *
@@ -50,7 +73,7 @@ struct CamInfoManagerMetadataPrivate : public cras::HasLogger
       return cras::nullopt;
 
     if (this->camInfoCache.find(*focalLengthMM) != this->camInfoCache.end())
-      return this->camInfoCache.at(*focalLengthMM);
+      return this->cameraInfoRotate(this->camInfoCache.at(*focalLengthMM));
 
     const auto uniqueName = manager->getCameraUniqueName();
     if (!uniqueName.has_value())
@@ -75,7 +98,7 @@ struct CamInfoManagerMetadataPrivate : public cras::HasLogger
       {
         const auto& camInfo = cameraInfoManager->getCameraInfo();
         if (camInfo.width == this->width && camInfo.height == this->height)
-          return this->camInfoCache[*focalLengthMM] = cameraInfoManager->getCameraInfo();
+          return this->cameraInfoRotate(this->camInfoCache[*focalLengthMM] = cameraInfoManager->getCameraInfo());
         else
           CRAS_DEBUG_NAMED("caminfo_manager",
             "Skipping camera calibration because it has wrong image dimensions.");

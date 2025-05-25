@@ -552,6 +552,40 @@ void MoviePrivate::updateMetadata(const StreamTime& ptsTime)
   while (!metadataToUpdate.empty() && !changed.empty());
 
   this->metadataManager->clearTimedMetadataCache();
+
+  const auto newRotation = this->metadataManager->getRotation().value_or(0);
+  // Check if image rotation has changed; if so, set up the rotation filter again (if new rotation is 0, do nothing)
+  if (this->info->metadataRotation() != newRotation)
+  {
+    cras::TempLocale l(LC_ALL, "en_US.UTF-8");
+    ROS_INFO("Movie rotation changed from %i° to %i°.", this->info->metadataRotation(), newRotation);
+
+    this->info->setMetadataRotation(newRotation);
+
+    if (newRotation != 0)
+    {
+      if (this->filterGraph != nullptr)
+      {
+        this->filterBuffersinkContext = nullptr;
+        this->filterBuffersrcContext = nullptr;
+        avfilter_graph_free(&this->filterGraph);
+      }
+      const auto rotationFilterResult = this->addRotationFilter();
+      if (!rotationFilterResult.has_value())
+        ROS_ERROR("Error reconfiguring movie rotation: %s", rotationFilterResult.error().c_str());
+    }
+
+    // Reconfigure swscale because it is also rotation-dependent
+    if (this->swscaleContext != nullptr)
+    {
+      this->imageBufferSize = 0;
+      sws_freeContext(this->swscaleContext);
+      this->swscaleContext = nullptr;
+    }
+    const auto swscaleResult = this->configSwscale();
+    if (!swscaleResult.has_value())
+      ROS_ERROR("Error reconfiguring movie after rotation change: %s", swscaleResult.error().c_str());
+  }
 }
 
 ros::Time MoviePrivate::getTimestamp(const StreamTime& ptsTime) const
@@ -785,9 +819,9 @@ cras::expected<void, std::string> MoviePrivate::addRotationFilter()
   filterInputs->next = nullptr;
 
   std::string filterDesc;
-  if (this->info->metadataRotation() == 90.0)
+  if (this->info->metadataRotation() == 90)
     filterDesc = "transpose=1";
-  else if (this->info->metadataRotation() == 180.0)
+  else if (this->info->metadataRotation() == 180)
     filterDesc = "transpose=1,transpose=1";
   else
     filterDesc = "transpose=2";

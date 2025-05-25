@@ -139,6 +139,39 @@ TEST(CamInfoManagerMetadataExtractor, LumixStill)  // NOLINT
   EXPECT_NEAR(0.0399399, e->getDistortion()->second[7], 1e-6);
 }
 
+TEST(CamInfoManagerMetadataExtractor, LumixStillRotated)  // NOLINT
+{
+  const TestData data = {
+    "Panasonic", "DMC-GX80", cras::nullopt, "LUMIX G VARIO 12-32/F3.5-5.6", "XGR1606080157-06FX2042462B", 30.0, 90
+  };
+  auto [m, e] = getExtractor(data, 4592, 3448);
+
+  ASSERT_TRUE(e->getIntrinsicMatrix());
+  const auto& K = *e->getIntrinsicMatrix();
+
+  EXPECT_NEAR(910.4449275805216, K[0], 1e-6);
+  EXPECT_NEAR(0.0, K[1], 1e-6);
+  EXPECT_NEAR(818.9322168491329, K[2], 1e-6);
+  EXPECT_NEAR(0.0, K[3], 1e-6);
+  EXPECT_NEAR(907.5058667024193, K[4], 1e-6);
+  EXPECT_NEAR(1023.674064941674, K[5], 1e-6);
+  EXPECT_NEAR(0.0, K[6], 1e-6);
+  EXPECT_NEAR(0.0, K[7], 1e-6);
+  EXPECT_NEAR(1.0, K[8], 1e-6);
+
+  ASSERT_TRUE(e->getDistortion());
+  EXPECT_EQ(sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL, e->getDistortion()->first);
+  ASSERT_EQ(8, e->getDistortion()->second.size());
+  EXPECT_NEAR(0.0168137, e->getDistortion()->second[0], 1e-6);
+  EXPECT_NEAR(-0.00191267, e->getDistortion()->second[1], 1e-6);
+  EXPECT_NEAR(0.0, e->getDistortion()->second[2], 1e-6);
+  EXPECT_NEAR(0.0, e->getDistortion()->second[3], 1e-6);
+  EXPECT_NEAR(0.0408514, e->getDistortion()->second[4], 1e-6);
+  EXPECT_NEAR(0.00559995, e->getDistortion()->second[5], 1e-6);
+  EXPECT_NEAR(-0.000484464, e->getDistortion()->second[6], 1e-6);
+  EXPECT_NEAR(0.0399399, e->getDistortion()->second[7], 1e-6);
+}
+
 TEST(CamInfoManagerMetadataExtractor, LumixMovie)  // NOLINT
 {
   const TestData data = {
