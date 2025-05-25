@@ -29,7 +29,7 @@ public:
 
   int getPriority() const override
   {
-    return 0;
+    return 100;
   }
 
   cras::optional<std::string> getCameraGeneralName() override

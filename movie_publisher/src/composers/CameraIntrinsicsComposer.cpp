@@ -30,7 +30,7 @@ public:
 
   int getPriority() const override
   {
-    return 0;
+    return 100;
   }
 
   bool hasTimedMetadata() const override
