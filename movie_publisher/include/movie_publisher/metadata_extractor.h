@@ -171,15 +171,15 @@ public:
    */
   virtual cras::optional<DistortionData> getDistortion() { return cras::nullopt; }
   /**
-   * \return GNSS position of the camera when capturing the frame.
+   * \return GNSS position of the camera when capturing the frame. Timestamps are zero.
    */
   virtual GNSSFixAndDetail getGNSSPosition() { return std::make_pair(cras::nullopt, cras::nullopt); }
   /**
-   * \return Azimuth describing global camera heading when capturing the frame.
+   * \return Azimuth describing global camera heading when capturing the frame. Timestamp is zero.
    */
   virtual cras::optional<compass_msgs::Azimuth> getAzimuth() { return cras::nullopt; }
   /**
-   * \return The magnetic field acting on the camera; measurement in X, Y and Z axes [T].
+   * \return The magnetic field acting on the camera; measurement in X, Y and Z axes [T]. Timestamp is zero.
    */
   virtual cras::optional<sensor_msgs::MagneticField> getMagneticField() { return cras::nullopt; }
   /**
@@ -195,17 +195,17 @@ public:
    */
   virtual cras::optional<geometry_msgs::Vector3> getAngularVelocity() { return cras::nullopt; }
   /**
-   * \return Faces detected in the scene.
+   * \return Faces detected in the scene. Timestamps are zero.
    */
   virtual cras::optional<vision_msgs::Detection2DArray> getFaces() { return cras::nullopt; }
 
   /**
-   * \return Extracted camera info combined from other fields, or nothing.
+   * \return Extracted camera info combined from other fields, or nothing. Timestamp is zero.
    */
   virtual cras::optional<sensor_msgs::CameraInfo> getCameraInfo() { return cras::nullopt; }
 
   /**
-   * \return Extracted IMU info combined from other fields, or nothing.
+   * \return Extracted IMU info combined from other fields, or nothing. Timestamp is zero.
    */
   virtual cras::optional<sensor_msgs::Imu> getImu() { return cras::nullopt; }
 

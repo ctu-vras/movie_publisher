@@ -204,11 +204,11 @@ struct MetadataCache final
 };
 
 /**
- * \brief Compare TimedMetadata according to their stamps.
+ * \brief Compare TimedMetadata according to their stamps (in decreasing order).
  * \tparam M Type of the metadata.
  * \param[in] a The timed metadata to compare.
  * \param[in] b The timestamp to compare with.
- * \return Whether a is greater than b.
+ * \return Whether a stamp is greater than b.
  */
 template<typename M>
 static bool CompareStamp(const TimedMetadata<M>& a, const StreamTime& b)
@@ -235,7 +235,7 @@ auto findLastUpToStamp(const std::vector<TimedMetadata<M>>& data, const StreamTi
  * \param[in] data A stamp-ordered list of metadata.
  * \param[in] stamp The maximum timestamp.
  * \param[in] defaultVal The default value to return in case no value was found in `data`.
- * \return Index of the latest data up to stamp.
+ * \return The latest data up to stamp.
  */
 template<typename M>
 cras::optional<TimedMetadata<M>> findLastUpToStamp(const std::vector<TimedMetadata<M>>& data, const StreamTime& stamp,
