@@ -112,60 +112,70 @@ struct CachingMetadataListener : public TimedMetadataListener
   void processRotation(const TimedMetadata<int>& data) override
   {
     this->cache->timed.rotation().push_back(data);
+    this->cache->latest.getRotation() = data.value;
     for (const auto& listener : this->listeners)
       listener->processRotation(data);
   }
   void processCropFactor(const TimedMetadata<double>& data) override
   {
     this->cache->timed.cropFactor().push_back(data);
+    this->cache->latest.getCropFactor() = data.value;
     for (const auto& listener : this->listeners)
       listener->processCropFactor(data);
   }
   void processSensorSizeMM(const TimedMetadata<SensorSize>& data) override
   {
     this->cache->timed.sensorSizeMM().push_back(data);
+    this->cache->latest.getSensorSizeMM() = data.value;
     for (const auto& listener : this->listeners)
       listener->processSensorSizeMM(data);
   }
   void processFocalLength35MM(const TimedMetadata<double>& data) override
   {
     this->cache->timed.focalLength35MM().push_back(data);
+    this->cache->latest.getFocalLength35MM() = data.value;
     for (const auto& listener : this->listeners)
       listener->processFocalLength35MM(data);
   }
   void processFocalLengthMM(const TimedMetadata<double>& data) override
   {
     this->cache->timed.focalLengthMM().push_back(data);
+    this->cache->latest.getFocalLengthMM() = data.value;
     for (const auto& listener : this->listeners)
       listener->processFocalLengthMM(data);
   }
   void processFocalLengthPx(const TimedMetadata<double>& data) override
   {
     this->cache->timed.focalLengthPx().push_back(data);
+    this->cache->latest.getFocalLengthPx() = data.value;
     for (const auto& listener : this->listeners)
       listener->processFocalLengthPx(data);
   }
   void processIntrinsicMatrix(const TimedMetadata<IntrinsicMatrix>& data) override
   {
     this->cache->timed.intrinsicMatrix().push_back(data);
+    this->cache->latest.getIntrinsicMatrix() = data.value;
     for (const auto& listener : this->listeners)
       listener->processIntrinsicMatrix(data);
   }
   void processDistortion(const TimedMetadata<std::pair<DistortionType, Distortion>>& data) override
   {
     this->cache->timed.distortion().push_back(data);
+    this->cache->latest.getDistortion() = data.value;
     for (const auto& listener : this->listeners)
       listener->processDistortion(data);
   }
   void processAzimuth(const TimedMetadata<compass_msgs::Azimuth>& data) override
   {
     this->cache->timed.azimuth().push_back(data);
+    this->cache->latest.getAzimuth() = data.value;
     for (const auto& listener : this->listeners)
       listener->processAzimuth(data);
   }
   void processMagneticField(const TimedMetadata<sensor_msgs::MagneticField>& data) override
   {
     this->cache->timed.magneticField().push_back(data);
+    this->cache->latest.getMagneticField() = data.value;
     for (const auto& listener : this->listeners)
       listener->processMagneticField(data);
   }
@@ -178,18 +188,21 @@ struct CachingMetadataListener : public TimedMetadataListener
   void processAcceleration(const TimedMetadata<geometry_msgs::Vector3>& data) override
   {
     this->cache->timed.acceleration().push_back(data);
+    this->cache->latest.getAcceleration() = data.value;
     for (const auto& listener : this->listeners)
       listener->processAcceleration(data);
   }
   void processAngularVelocity(const TimedMetadata<geometry_msgs::Vector3>& data) override
   {
     this->cache->timed.angularVelocity().push_back(data);
+    this->cache->latest.getAngularVelocity() = data.value;
     for (const auto& listener : this->listeners)
       listener->processAngularVelocity(data);
   }
   void processFaces(const TimedMetadata<vision_msgs::Detection2DArray>& data) override
   {
     this->cache->timed.faces().push_back(data);
+    this->cache->latest.getFaces() = data.value;
     for (const auto& listener : this->listeners)
       listener->processFaces(data);
   }
@@ -202,18 +215,21 @@ struct CachingMetadataListener : public TimedMetadataListener
   void processImu(const TimedMetadata<sensor_msgs::Imu>& data) override
   {
     this->cache->timed.imu().push_back(data);
+    this->cache->latest.getImu() = data.value;
     for (const auto& listener : this->listeners)
       listener->processImu(data);
   }
   void processOpticalFrameTF(const TimedMetadata<geometry_msgs::Transform>& data) override
   {
     this->cache->timed.opticalFrameTF().push_back(data);
+    this->cache->latest.getOpticalFrameTF() = data.value;
     for (const auto& listener : this->listeners)
       listener->processOpticalFrameTF(data);
   }
   void processGNSSPosition(const TimedMetadata<GNSSFixAndDetail>& data) override
   {
     this->cache->timed.gnssPosition().push_back(data);
+    this->cache->latest.getGNSSPosition() = data.value;
     for (const auto& listener : this->listeners)
       listener->processGNSSPosition(data);
   }
