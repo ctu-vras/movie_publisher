@@ -79,6 +79,7 @@ protected:
   std::string topic;  //!< The base topic name.
   std::string transport;  //!< The transport to use.
   std::function<std::string(const std::string&)> resolveName;
+  cras::optional<geometry_msgs::TransformStamped> lastOpticalTF;  //!< Last optical transform.
 };
 
 /**

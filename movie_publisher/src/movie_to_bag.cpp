@@ -341,6 +341,13 @@ cras::expected<void, std::string> MovieToBagMetadataProcessor::processZeroRollPi
 cras::expected<void, std::string> MovieToBagMetadataProcessor::processOpticalTf(
   const geometry_msgs::TransformStamped& opticalTfMsg)
 {
+  auto zeroStampCopy = opticalTfMsg;
+  zeroStampCopy.header.stamp = {};
+
+  if (this->lastOpticalTF.has_value() && *this->lastOpticalTF == zeroStampCopy)
+    return {};
+  this->lastOpticalTF = zeroStampCopy;
+
   tf2_msgs::TFMessage msg;
   msg.transforms.push_back(opticalTfMsg);
   try
