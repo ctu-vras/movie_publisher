@@ -5,6 +5,16 @@
 Changelog for package gpmf_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fixed parsing of faces.
+  Also fixed timestamps for timed metadata.
+  Also fixed the order of some parsed vectors.
+  Closes `#12 <https://github.com/ctu-vras/movie_publisher/issues/12>`_.
+* Fixed tests.
+  Closes `#11 <https://github.com/ctu-vras/movie_publisher/issues/11>`_.
+* Contributors: Martin Pecka
+
 3.0.2 (2025-05-13)
 ------------------
 * Fixed the extractor, working unit test.

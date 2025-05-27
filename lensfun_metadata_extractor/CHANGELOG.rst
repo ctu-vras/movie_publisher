@@ -5,6 +5,9 @@
 Changelog for package lensfun_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.0.2 (2025-05-13)
 ------------------
 

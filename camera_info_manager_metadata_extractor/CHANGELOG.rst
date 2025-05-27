@@ -5,6 +5,12 @@
 Changelog for package camera_info_manager_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fixed handling of movies where image rotation changes in the middle of the movie.
+  Closes `#9 <https://github.com/ctu-vras/movie_publisher/issues/9>`_.
+* Contributors: Martin Pecka
+
 3.0.2 (2025-05-13)
 ------------------
 

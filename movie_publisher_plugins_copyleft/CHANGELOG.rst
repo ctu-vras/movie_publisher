@@ -5,6 +5,9 @@
 Changelog for package movie_publisher_plugins_copyleft
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.0.2 (2025-05-13)
 ------------------
 

@@ -5,6 +5,30 @@
 Changelog for package movie_publisher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fixed swapped roll and pitch in RollPitchComposer.
+  Closes `#16 <https://github.com/ctu-vras/movie_publisher/issues/16>`_.
+* Make timestamps of messages passed to MovieMetadataProcessors consistent.
+  Closes `#15 <https://github.com/ctu-vras/movie_publisher/issues/15>`_.
+* Set inner frame_ids of detected faces.
+  Closes `#14 <https://github.com/ctu-vras/movie_publisher/issues/14>`_.
+* Fixed creation of static TFs in movie_to_bag.
+  Closes `#13 <https://github.com/ctu-vras/movie_publisher/issues/13>`_.
+* Fixed setting frame_id to latest metadata before they are updated from latest metadata.
+  Closes `#10 <https://github.com/ctu-vras/movie_publisher/issues/10>`_.
+* Fixed handling of movies where image rotation changes in the middle of the movie.
+  Closes `#9 <https://github.com/ctu-vras/movie_publisher/issues/9>`_.
+* Fixed doc comments.
+* Update latest metadata from timed metadata.
+  Closes `#8 <https://github.com/ctu-vras/movie_publisher/issues/8>`_.
+* Fixed OpticalFrameTFComposer producing too much output.
+  Closes `#7 <https://github.com/ctu-vras/movie_publisher/issues/7>`_.
+* Fixed priority of composers.
+  Closes `#6 <https://github.com/ctu-vras/movie_publisher/issues/6>`_.
+* Fixed exception when stream start_time is wrong and leads to negative stream time.
+* Contributors: Martin Pecka
+
 3.0.2 (2025-05-13)
 ------------------
 * Added ROS parameters allowed_extractors and excluded_extractors.

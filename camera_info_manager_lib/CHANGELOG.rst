@@ -5,6 +5,9 @@
 Changelog for package camera_info_manager_lib
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 3.0.2 (2025-05-13)
 ------------------
 
