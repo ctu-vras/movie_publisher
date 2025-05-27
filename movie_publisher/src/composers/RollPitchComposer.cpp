@@ -7,7 +7,12 @@
  * \author Martin Pecka
  */
 
+#include <Eigen/Geometry>
+
+#include <cras_cpp_common/tf2_utils.hpp>
 #include <cras_cpp_common/type_utils.hpp>
+#include <geometry_msgs/Quaternion.h>
+#include <geometry_msgs/Vector3.h>
 #include <movie_publisher/metadata_manager.h>
 #include <pluginlib/class_list_macros.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -48,18 +53,22 @@ public:
 
   cras::optional<RollPitch> compose(const geometry_msgs::Vector3& acceleration) const
   {
-    tf2::Vector3 a;
-    tf2::fromMsg(acceleration, a);
+    // Compute the rotation between measured gravity vector and steady-state gravity vector
+    Eigen::Vector3d v1(acceleration.x, acceleration.y, acceleration.z);
+    Eigen::Vector3d v2(0, 0, 9.81);
 
     // If the acceleration doesn't contain gravity, we cannot tell roll/pitch.
-    if (a.length() < 9.8 / 2)
+    if (v1.norm() < 9.8 / 2)
       return cras::nullopt;
 
-    a.normalize();
-    const auto normYZ = std::sqrt(a.y() * a.y() + a.z() * a.z());
-    return std::make_pair(
-      normYZ > 1e-5 ? std::atan2(-a.x(), normYZ) : (a.x() >= 0 ? -M_PI_2 : M_PI_2),
-      std::abs(a.z()) > 1e-5 ? std::atan2(a.y(), a.z()) : (a.y() >= 0 ? -M_PI_2 : M_PI_2));
+    const auto q = Eigen::Quaterniond::FromTwoVectors(v1, v2);
+    geometry_msgs::Quaternion quat;
+    quat.x = q.x(); quat.y = q.y(); quat.z = q.z(); quat.w = q.w();
+
+    double roll, pitch, yaw;
+    cras::getRPY(quat, roll, pitch, yaw);
+
+    return std::make_pair(roll, pitch);
   }
 
   cras::optional<RollPitch> getRollPitch() override

@@ -45,6 +45,8 @@ target_link_libraries(ffmpeg INTERFACE PkgConfig::LIBAVUTIL PkgConfig::LIBAVCODE
 # From cras_cpp_common, provides std::filesystem target
 find_package(Filesystem REQUIRED COMPONENTS Final Experimental Boost)
 
+find_package(Eigen3 REQUIRED)
+
 pkg_check_modules(MUPARSER muparser REQUIRED IMPORTED_TARGET)
 
 find_package(magic_enum CONFIG)
@@ -95,7 +97,7 @@ add_library(movie_reader_metadata_composers
   src/composers/RollPitchComposer.cpp
   src/composers/ZeroRollPitchTFComposer.cpp
 )
-target_link_libraries(movie_reader_metadata_composers PUBLIC ${catkin_LIBRARIES} movie_reader)
+target_link_libraries(movie_reader_metadata_composers PUBLIC ${catkin_LIBRARIES} movie_reader PRIVATE Eigen3::Eigen)
 
 add_library(movie_to_bag src/movie_to_bag.cpp)
 target_link_libraries(movie_to_bag PUBLIC movie_reader ${catkin_LIBRARIES} PRIVATE std::filesystem)
@@ -160,7 +162,7 @@ if (CATKIN_ENABLE_TESTING)
   roslaunch_add_file_check(launch/${PROJECT_NAME}.launch IGNORE_UNSET_ARGS)
 
   catkin_add_gmock(test_movie_reader test/test_movie_reader.cpp)
-  target_link_libraries(test_movie_reader movie_reader movie_reader_metadata_plugins)
+  target_link_libraries(test_movie_reader movie_reader movie_reader_metadata_composers movie_reader_metadata_plugins)
   target_compile_definitions(test_movie_reader PRIVATE TEST_DATA_DIR="${CATKIN_DEVEL_PREFIX}/share/test_data")
   add_custom_command(TARGET test_movie_reader POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../test_data" "${CATKIN_DEVEL_PREFIX}/share/test_data")

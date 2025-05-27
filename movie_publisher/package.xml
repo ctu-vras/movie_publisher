@@ -20,6 +20,7 @@
 
   <build_depend>compass_conversions</build_depend>
   <build_depend>cras_topic_tools</build_depend>
+  <build_depend>eigen</build_depend>
   <build_depend>ffmpeg-dev</build_depend>
   <build_depend>image_geometry</build_depend>
   <build_depend>image_transport</build_depend>
