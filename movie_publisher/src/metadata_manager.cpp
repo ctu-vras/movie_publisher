@@ -111,6 +111,13 @@ void setFrameId(GNSSFixAndDetail& msg, const std::string& frameId)
     msg.second->status.header.frame_id = frameId;
   }
 }
+template<typename = vision_msgs::Detection2DArray>
+void setFrameId(cras::optional<vision_msgs::Detection2DArray>& msg, const std::string& frameId)
+{
+  msg->header.frame_id = frameId;
+  for (auto& det : msg->detections)
+    det.header.frame_id = frameId;
+}
 
 template<typename T, typename O = cras::optional<T>>
 T MetadataManager::checkExtractors(const std::string& func,
