@@ -3,7 +3,7 @@
 <!-- SPDX-FileCopyrightText: Czech Technical University in Prague -->
 <package format="3">
   <name>exiftool_metadata_extractor</name>
-  <version>3.0.2</version>
+  <version>3.0.3</version>
   <description>Metadata extractor utilizing exiftool.</description>
 
   <maintainer email="peckama2@fel.cvut.cz">Martin Pecka</maintainer>

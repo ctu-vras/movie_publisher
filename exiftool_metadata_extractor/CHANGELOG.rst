@@ -5,8 +5,8 @@
 Changelog for package exiftool_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.3 (2025-05-28)
+------------------
 * Fixed parsing camera model from GoPro videos.
   Closes `#17 <https://github.com/ctu-vras/movie_publisher/issues/17>`_.
 * Contributors: Martin Pecka

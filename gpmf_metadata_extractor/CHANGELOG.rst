@@ -5,8 +5,8 @@
 Changelog for package gpmf_metadata_extractor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.3 (2025-05-28)
+------------------
 * Fixed parsing of faces.
   Also fixed timestamps for timed metadata.
   Also fixed the order of some parsed vectors.

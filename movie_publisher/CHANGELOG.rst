@@ -5,8 +5,8 @@
 Changelog for package movie_publisher
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.3 (2025-05-28)
+------------------
 * Fixed swapped roll and pitch in RollPitchComposer.
   Closes `#16 <https://github.com/ctu-vras/movie_publisher/issues/16>`_.
 * Make timestamps of messages passed to MovieMetadataProcessors consistent.
