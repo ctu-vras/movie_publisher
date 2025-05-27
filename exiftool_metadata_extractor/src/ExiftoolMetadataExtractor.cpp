@@ -171,7 +171,12 @@ struct ExiftoolMetadataPrivate : cras::HasLogger
         continue;
       const auto key = fullKeyName(exif);
       (*this->exifData)[key] = exif;
-      (*this->exifData)[std::string("*.") + exif->name] = exif;  // Create a *.key item to allow searching by last item
+      // Create a *.key items to allow searching by last items
+      for (auto keyParts = cras::split(key, "."); keyParts.size() > 1;)
+      {
+        keyParts.erase(keyParts.begin());
+        (*this->exifData)[std::string("*.") + cras::join(keyParts, ".")] = exif;
+      }
       CRAS_DEBUG_NAMED("exiftool.dump", "exiftool %s=%s", key.c_str(), exif->value);
     }
   }
@@ -216,33 +221,28 @@ int ExiftoolMetadataExtractor::getPriority() const
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifMake()
 {
-  const std::list<std::string> keys = {
-    "EXIF.IFD0.Camera.Make", "QuickTime.Keys.Camera.Make", "QuickTime.QuickTime.Camera.Make"};
-  RETURN_STRING(keys);
+  RETURN_STRING("*.Camera.Make");
 }
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifModel()
 {
-  const std::list<std::string> keys = {
-    "EXIF.IFD0.Camera.Model", "QuickTime.Keys.Camera.Model", "QuickTime.QuickTime.Camera.Model"};
-  RETURN_STRING(keys);
+  RETURN_STRING("*.Camera.Model");
 }
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifLensMake()
 {
-  RETURN_STRING("EXIF.ExifIFD.Image.LensMake");
+  RETURN_STRING("*.Image.LensMake");
 }
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifLensModel()
 {
-  const std::list<std::string> keys = {"Composite.Composite.Camera.LensID", "QuickTime.Keys.Audio.CameraLensModel",
-    "*.CameraLensModel", "*.LensModel", "QuickTime.QuickTime.Audio.CameraLens_model"};
+  const std::list<std::string> keys = {"*.Camera.LensID", "*.CameraLensModel", "*.LensModel", "*.CameraLens_model"};
   RETURN_STRING(keys);
 }
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifBodySerialNumber()
 {
-  const std::list<std::string> keys = {"*.SerialNumber", "*.InternalSerialNumber"};
+  const std::list<std::string> keys = {"*.SerialNumber", "*.CameraSerialNumber", "*.InternalSerialNumber"};
   RETURN_STRING(keys);
 }
 
@@ -253,8 +253,8 @@ cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifLensSerial
 
 cras::optional<ExifData<ExifAscii>> ExiftoolMetadataExtractor::getExifDateTimeOriginal()
 {
-  const std::list<std::string> keys = {"EXIF.ExifIFD.Time.DateTimeOriginal", "QuickTime.Keys.Time.CreationDate",
-    "QuickTime.QuickTime.Time.CreateDate"};
+  const std::list<std::string> keys = {"EXIF.ExifIFD.Time.DateTimeOriginal", "*.Time.CreationDate",
+    "*.Time.CreateDate"};
   RETURN_STRING(keys);
 }
 
