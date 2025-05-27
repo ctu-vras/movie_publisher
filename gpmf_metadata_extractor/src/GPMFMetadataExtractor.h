@@ -34,14 +34,14 @@ public:
    * \brief Constructor.
    * \param[in] log Logger.
    * \param[in] manager Metadata manager.
-   * \param[in] width Width of the movie [px].
-   * \param[in] height Height of the movie [px].
+   * \param[in] info Movie info.
+   * \param[in] config Movie open config.
    * \param[in] avFormatContext Libav context of the opened video file.
    * \param[in] priority Priority of the extractor.
    */
   explicit GPMFMetadataExtractor(
-    const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager, size_t width, size_t height,
-    const AVFormatContext* avFormatContext, int priority);
+    const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager, const MovieInfo::ConstPtr& info,
+    const MovieOpenConfig& config, const AVFormatContext* avFormatContext, int priority);
   ~GPMFMetadataExtractor() override;
 
   std::string getName() const override;

@@ -24,13 +24,15 @@ file(GLOB GPMF_SOURCES
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBAVFORMAT libavformat REQUIRED IMPORTED_TARGET)
 
+find_package(Eigen3 REQUIRED)
+
 catkin_package()
 
 include_directories(${catkin_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} ${GPMF_SOURCES} src/GPMFMetadataExtractor.cpp )
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE PkgConfig::LIBAVFORMAT)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES} PRIVATE PkgConfig::LIBAVFORMAT Eigen3::Eigen)
 
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -64,7 +66,7 @@ if (CATKIN_ENABLE_TESTING)
 
   roslint_add_test()
 
-  catkin_add_gtest(test_${PROJECT_NAME} test/test_extractor.cpp)
+  catkin_add_gmock(test_${PROJECT_NAME} test/test_extractor.cpp)
   target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME} ${catkin_LIBRARIES} PkgConfig::LIBAVFORMAT)
   target_include_directories(test_${PROJECT_NAME} PRIVATE src)
   target_compile_definitions(test_${PROJECT_NAME} PRIVATE TEST_DATA_DIR="${CATKIN_DEVEL_PREFIX}/share/test_data")

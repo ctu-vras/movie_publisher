@@ -1740,6 +1740,11 @@ GPMF_ERR GPMF_ScaledData(GPMF_stream *ms, void *buffer, uint32_t buffersize, uin
 					orio_data = (char *)GPMF_RawData(&fs);
 					orio_len = GPMF_DATA_PACKEDSIZE(fs.buffer[fs.pos + 1]);
 				}
+				else
+				{
+					orio_data = "ZXY";
+					orio_len = 3;
+				}
 				if (orio_len == orin_len && orin_len > 1 && orio_len == elements)
 				{
 					uint32_t x, y, pos = 0;
