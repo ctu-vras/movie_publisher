@@ -123,49 +123,57 @@ MovieMetadataListener::MovieMetadataListener(
 void MovieMetadataListener::processGNSSPosition(
   const TimedMetadata<std::pair<cras::optional<sensor_msgs::NavSatFix>, cras::optional<gps_common::GPSFix>>>& gnss)
 {
+  auto copy = gnss;
+  const auto stamp = this->getTimestamp(gnss.stamp);
+  if (gnss.value.first.has_value())
+  {
+    copy.value.first->header.stamp = stamp;
+    copy.value.first->header.frame_id = this->config.frameId();
+  }
+  if (gnss.value.second.has_value())
+  {
+    copy.value.second->header.stamp = stamp;
+    copy.value.second->header.frame_id = this->config.frameId();
+    copy.value.second->status.header = copy.value.second->header;
+  }
+
   for (const auto& processor : this->config.metadataProcessors())
   {
-    if (gnss.value.first.has_value())
-    {
-      auto copy = *gnss.value.first;
-      copy.header.stamp = this->getTimestamp(gnss.stamp);
-      copy.header.frame_id = this->config.frameId();
-      processor->processNavSatFix(copy);
-    }
-    if (gnss.value.second.has_value())
-    {
-      auto copy = *gnss.value.second;
-      copy.header.stamp = this->getTimestamp(gnss.stamp);
-      copy.header.frame_id = this->config.frameId();
-      copy.status.header = copy.header;
-      processor->processGps(copy);
-    }
+    if (copy.value.first.has_value())
+      processor->processNavSatFix(*copy.value.first);
+    if (copy.value.second.has_value())
+      processor->processGps(*copy.value.second);
   }
 }
 void MovieMetadataListener::processAzimuth(const TimedMetadata<compass_msgs::Azimuth>& data)
 {
+  const auto copy = this->fixHeader(data, this->config.frameId());
   for (const auto& processor : this->config.metadataProcessors())
-    processor->processAzimuth(this->fixHeader(data, this->config.frameId()));
+    processor->processAzimuth(copy);
 }
 void MovieMetadataListener::processMagneticField(const TimedMetadata<sensor_msgs::MagneticField>& data)
 {
+  const auto copy = this->fixHeader(data, this->config.frameId());
   for (const auto& processor : this->config.metadataProcessors())
-    processor->processMagneticField(this->fixHeader(data, this->config.frameId()));
+    processor->processMagneticField(copy);
 }
 void MovieMetadataListener::processFaces(const TimedMetadata<vision_msgs::Detection2DArray>& data)
 {
+  const auto copy = this->fixHeader(data, this->config.opticalFrameId());
   for (const auto& processor : this->config.metadataProcessors())
-    processor->processFaces(this->fixHeader(data, this->config.frameId()));
+    processor->processFaces(copy);
 }
 void MovieMetadataListener::processCameraInfo(const TimedMetadata<sensor_msgs::CameraInfo>& data)
 {
+  const auto copy = this->fixHeader(data, this->config.opticalFrameId());
   for (const auto& processor : this->config.metadataProcessors())
-    processor->processCameraInfo(this->fixHeader(data, this->config.opticalFrameId()));
+    processor->processCameraInfo(copy);
 }
 void MovieMetadataListener::processImu(const TimedMetadata<sensor_msgs::Imu>& data)
 {
+  const auto copy = this->fixHeader(data, this->config.frameId());
   for (const auto& processor : this->config.metadataProcessors())
-    processor->processImu(this->fixHeader(data, this->config.frameId()));
+    processor->processImu(copy);
 }
 void MovieMetadataListener::processRollPitch(const TimedMetadata<std::pair<double, double>>& data)
 {
