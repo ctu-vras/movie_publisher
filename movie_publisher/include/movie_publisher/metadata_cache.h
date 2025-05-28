@@ -217,6 +217,32 @@ static bool CompareStamp(const TimedMetadata<M>& a, const StreamTime& b)
 }
 
 /**
+ * \brief Compare TimedMetadata according to their stamps (in increasing order).
+ * \tparam M Type of the metadata.
+ * \param[in] a The timed metadata to compare.
+ * \param[in] b The timestamp to compare with.
+ * \return Whether a stamp is lower than b.
+ */
+template<typename M>
+static bool CompareStampLessLowerBound(const TimedMetadata<M>& a, const StreamTime& b)
+{
+  return a.stamp < b;
+}
+
+/**
+ * \brief Compare TimedMetadata according to their stamps (in increasing order).
+ * \tparam M Type of the metadata.
+ * \param[in] a The timestamp to compare with.
+ * \param[in] b The timed metadata to compare.
+ * \return Whether a stamp is lower than b.
+ */
+template<typename M>
+static bool CompareStampLessUpperBound(const StreamTime& a, const TimedMetadata<M>& b)
+{
+  return a < b.stamp;
+}
+
+/**
  * \brief Find index of the latest data from `data` that have their timestamp less than or equal to `stamp`.
  * \tparam M Metadata type.
  * \param[in] data A stamp-ordered list of metadata.
@@ -227,6 +253,24 @@ template<typename M>
 auto findLastUpToStamp(const std::vector<TimedMetadata<M>>& data, const StreamTime& stamp)
 {
   return std::lower_bound(data.crbegin(), data.crend(), stamp, &CompareStamp<M>);
+}
+
+/**
+ * \brief Find index of the earliest data from `data` that have their timestamp greater than `stamp`.
+ * \tparam M Metadata type.
+ * \param[in] data A stamp-ordered list of metadata.
+ * \param[in] stamp The minimum timestamp.
+ * \param[in] includeStart If true, also include data from time `stamp`.
+ * \return Index of the earliest data greater than `stamp`.
+ */
+template<typename M>
+auto findFirstAfterStamp(const std::vector<TimedMetadata<M>>& data, const StreamTime& stamp,
+  const bool includeStamp = false)
+{
+  if (includeStamp)
+    return std::lower_bound(data.cbegin(), data.cend(), stamp, &CompareStampLessLowerBound<M>);
+  else
+    return std::upper_bound(data.cbegin(), data.cend(), stamp, &CompareStampLessUpperBound<M>);
 }
 
 /**
@@ -247,6 +291,52 @@ cras::optional<TimedMetadata<M>> findLastUpToStamp(const std::vector<TimedMetada
   if (defaultVal.has_value())
     return TimedMetadata<M>{StreamTime{}, *defaultVal};
   return cras::nullopt;
+}
+
+/**
+ * \brief Find the earliest data from `data` that have their timestamp greater than `stamp`.
+ * \tparam M Metadata type.
+ * \param[in] data A stamp-ordered list of metadata.
+ * \param[in] stamp The minimum timestamp.
+ * \param[in] defaultVal The default value to return in case no value was found in `data`.
+ * \param[in] includeStamp If true, also include data from time `stamp`.
+ * \return The first data after stamp.
+ */
+template<typename M>
+cras::optional<TimedMetadata<M>> findFirstAfterStamp(const std::vector<TimedMetadata<M>>& data, const StreamTime& stamp,
+  const cras::optional<M>& defaultVal, const bool includeStamp = false)
+{
+  const auto it = findFirstAfterStamp(data, stamp, includeStamp);
+  if (it != data.cend())
+    return *it;
+  if (defaultVal.has_value())
+    return TimedMetadata<M>{StreamTime{}, *defaultVal};
+  return cras::nullopt;
+}
+
+/**
+ * \brief Find all data from `data` that have their timestamps in range (start, end].
+ * \tparam M Metadata type.
+ * \param[in] data A stamp-ordered list of metadata.
+ * \param[in] start The minimum timestamp.
+ * \param[in] end The maximum timestamp.
+ * \param[in] includeStart If true, also include data from time `start` (returning interval [start, end]).
+ * \return All data with stamps in range (start, end].
+ */
+template<typename M>
+std::vector<TimedMetadata<M>> findBetweenStamps(const std::vector<TimedMetadata<M>>& data,
+  const StreamTime& start, const StreamTime& end, const bool includeStart = false)
+{
+  if (start > end)
+    return {};
+
+  const auto startIt = findFirstAfterStamp(data, start, includeStart);
+  if (startIt == data.cend())
+    return {};
+  const auto endIt = findLastUpToStamp(data, end);
+  if (endIt == data.crend())
+    return {};
+  return {startIt, endIt.base()};
 }
 
 }

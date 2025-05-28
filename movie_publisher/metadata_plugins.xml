@@ -17,4 +17,9 @@
       Metadata extractor utilizing an already open libav stream.
     </description>
   </class>
+  <class name="movie_publisher/sidecar_file_metadata_extractor" type="movie_publisher::SidecarFileMetadataExtractorPlugin" base_class_type="movie_publisher::MetadataExtractorPlugin">
+    <description>
+      Extractor of metadata from sidecar YAML files.
+    </description>
+  </class>
 </library>

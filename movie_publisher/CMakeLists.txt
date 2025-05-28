@@ -51,6 +51,15 @@ pkg_check_modules(MUPARSER muparser REQUIRED IMPORTED_TARGET)
 
 find_package(magic_enum CONFIG)
 
+find_package(yaml-cpp REQUIRED)
+if(TARGET yaml-cpp::yaml-cpp)
+  set(yaml_cpp "yaml-cpp::yaml-cpp")
+else()
+  set(yaml_cpp "yaml-cpp")
+  # On Ubuntu Focal, the installed CMake file points to wrong directory; we thus ignore it here
+  # target_include_directories(yaml-cpp INTERFACE "${YAML_CPP_INCLUDE_DIRS}")
+endif()
+
 include_directories(include ${catkin_INCLUDE_DIRS})
 
 add_library(movie_reader_types
@@ -85,8 +94,9 @@ add_library(movie_reader_metadata_plugins
   src/metadata/FileMetadataExtractor.cpp
   src/metadata/FilenameMetadataExtractor.cpp
   src/metadata/LibavStreamMetadataExtractor.cpp
+  src/metadata/SidecarFileMetadataExtractor.cpp
 )
-target_link_libraries(movie_reader_metadata_plugins PUBLIC ${catkin_LIBRARIES} movie_reader PRIVATE ffmpeg std::filesystem)
+target_link_libraries(movie_reader_metadata_plugins PUBLIC ${catkin_LIBRARIES} movie_reader PRIVATE ffmpeg std::filesystem ${yaml_cpp})
 
 add_library(movie_reader_metadata_composers
   src/composers/CameraInfoComposer.cpp

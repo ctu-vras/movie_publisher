@@ -1,0 +1,165 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
+defaults: "defaults"  # path to file with default values (without .yaml extension)
+
+rotation: 90
+creation_time: 2025-01-01 12:34:56.789+0200
+focal_length_35mm: 72
+focal_length_mm: 36
+focal_length_px: 1000
+intrinsic_matrix: [1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0]
+distortion:
+  - rational_polynomial
+  - [1.0, -1.0, 0.0, 1.0, 1.0]
+gnss_position:
+  latitude: 50.0
+  longitude: 15.0
+  altitude: 500.0
+  position_covariance: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+  position_covariance_type: 1
+  status:
+    status: 1
+    service: 2
+    satellites_used: 2
+    satellite_used_prn: [1, 2]
+    satellites_visible: 3
+    satellite_visible_prn: [1, 2, 3]
+    satellite_visible_z: [4, 5, 6]
+    satellite_visible_azimuth: [7, 8, 9]
+    satellite_visible_snr: [10, 11, 12]
+    position_source: 1
+    orientation_source: 2
+    motion_source: 3
+  track: 1.0
+  speed: 2.0
+  climb: 3.0
+  pitch: 4.0
+  roll: 5.0
+  dip: 6.0
+  time: 7.0
+  gdop: 8.0
+  pdop: 9.0
+  hdop: 10.0
+  vdop: 11.0
+  tdop: 12.0
+  err: 13.0
+  err_horz: 14.0
+  err_vert: 15.0
+  err_track: 16.0
+  err_speed: 17.0
+  err_climb: 18.0
+  err_time: 19.0
+  err_pitch: 20.0
+  err_roll: 21.0
+  err_dip: 22.0
+azimuth:
+  azimuth: 2.0
+  variance: 4.0
+  unit: 1
+  orientation: 2
+  reference: 3
+magnetic_field:
+  magnetic_field: [1e-5, 2e-5, 3e-5]
+  magnetic_field_covariance: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+roll_pitch: [1.0, 2.0]
+acceleration: [1.0, 2.0, 3.0]
+angular_velocity: [1.0, 2.0, 3.0]
+faces:
+  - bbox:
+      center: [1.0, 2.0]
+      size_x: 3.0
+      size_y: 4.0
+    score: 1.0
+  - bbox:
+      center: [5.0, 6.0]
+      size_x: 7.0
+      size_y: 8.0
+camera_info:
+  width: 800
+  height: 600
+  distortion_model: rational_polynomial
+  D: [1.0, -1.0, 0.0, 1.0, 1.0]
+  K: [1000.0, 0.0, 960.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 1.0]
+  R: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+  P: [1000.0, 0.0, 960.0, 0.0, 0.0, 1000.0, 540.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+  binning_x: 1
+  binning_y: 2
+  roi:
+    x_offset: 1
+    y_offset: 2
+    height: 400
+    width: 600
+    do_rectify: 1
+imu:
+  orientation: [1.0, 2.0, 3.0, 4.0]
+  orientation_covariance: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+  angular_velocity: [1.0, 2.0, 3.0]
+  angular_velocity_covariance: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+  linear_acceleration: [1.0, 2.0, 3.0]
+  linear_acceleration_covariance: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+optical_frame_tf:
+  rotation: [1.0, 2.0, 3.0, 4.0]
+zero_roll_pitch_tf:
+  translation: [1.0, 2.0, 3.0]
+timed:
+  rotation:
+    - stamp: 0.0
+      value: 90
+    - stamp: 0.01
+      value: 90
+    - stamp: 0.02
+      value: 90
+    - stamp: 0.03
+      value: 90
+    - stamp: 1.0
+      # value: 180  # Taken from defaults
+    - stamp: 1.1
+      value: 90
+    - stamp: 1.12
+      value: 90
+    - stamp: 1.14
+      # value: 180  # Taken from defaults
+  gnss_position:
+    - stamp: 0/0
+      init_from_latest: True
+      value:
+        latitude: 50.1
+        longitude: 15.1
+        altitude: 500.1
+    - stamp: 0/1
+      init_from_latest: True
+      value:
+        latitude: 50.2
+        longitude: 15.2
+        altitude: 500.2
+    - stamp: 0/2
+      init_from_latest: True
+      value:
+        latitude: 50.3
+        longitude: 15.3
+        altitude: 500.3
+    - stamp: 1.0/0
+      init_from_latest: True
+      value:
+        latitude: 50.4
+        longitude: 15.4
+        altitude: 500.4
+    - stamp: 1.0/5
+      init_from_latest: True
+      value:
+        latitude: 50.5
+        longitude: 15.5
+        altitude: 500.5
+    - stamp: 1.0/6
+      init_from_latest: True
+      value:
+        latitude: 50.6
+        longitude: 15.6
+        altitude: 500.6
+    - stamp: 1.0/7
+      init_from_latest: True
+      value:
+        latitude: 50.7
+        longitude: 15.7
+        altitude: 500.7

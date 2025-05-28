@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: Czech Technical University in Prague
+
+camera_general_name: "Test camera"
+camera_unique_name: "Test camera 1234-5678"
+camera_serial_number: "1234-5678"
+camera_make: "Test"
+camera_model: "camera"
+lens_make: "Test"
+lens_model: "lens"
+video:  # Configuration applicable only to videos
+  crop_factor: 2.0
+  sensor_size_mm: [18, 12]
+still:  # Configuration applicable only to still pictures
+  crop_factor: 1.95
+  sensor_size_mm: [17.9, 11.9]
+timed:
+  rotation: 180
