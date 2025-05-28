@@ -345,7 +345,13 @@ void readTimedYAML(const YAML::Node& node, const std::string& key, std::vector<T
         {
           auto value = getInitialTimedValue<T>(data, latest, defaults);
           if (!YAML::convert<TimedMetadata<T>>::decode(data, value))
+          {
+#if YAML_CPP_NODE_HAS_MARK
             throw YAML::TypedBadConversion<T>(data.Mark());
+#else
+            throw YAML::TypedBadConversion<T>();
+#endif
+          }
           dest.push_back(value);
         }
       }

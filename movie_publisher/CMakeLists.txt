@@ -59,6 +59,11 @@ else()
   # On Ubuntu Focal, the installed CMake file points to wrong directory; we thus ignore it here
   # target_include_directories(yaml-cpp INTERFACE "${YAML_CPP_INCLUDE_DIRS}")
 endif()
+if (${yaml-cpp_VERSION} VERSION_LESS 0.5.3)
+  set(YAML_CPP_NODE_HAS_MARK 0)
+else()
+  set(YAML_CPP_NODE_HAS_MARK 1)
+endif()
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
@@ -97,6 +102,7 @@ add_library(movie_reader_metadata_plugins
   src/metadata/SidecarFileMetadataExtractor.cpp
 )
 target_link_libraries(movie_reader_metadata_plugins PUBLIC ${catkin_LIBRARIES} movie_reader PRIVATE ffmpeg std::filesystem ${yaml_cpp})
+target_compile_definitions(movie_reader_metadata_plugins PRIVATE YAML_CPP_NODE_HAS_MARK=${YAML_CPP_NODE_HAS_MARK})
 
 add_library(movie_reader_metadata_composers
   src/composers/CameraInfoComposer.cpp

@@ -41,7 +41,13 @@ void updateFromYAML(const Node& node, T& dest)
   if (!node)
     throw InvalidNode();
   if (!convert<YAMLType>::decode(node, dest))
+  {
+#if YAML_CPP_NODE_HAS_MARK
     throw TypedBadConversion<T>(node.Mark());
+#else
+    throw TypedBadConversion<T>();
+#endif
+  }
 }
 
 template <typename T, typename YAMLType, typename std::enable_if_t<!std::is_same<T, YAMLType>::value>* = nullptr>
@@ -51,7 +57,13 @@ void updateFromYAML(const Node& node, T& dest)
     throw InvalidNode();
   auto val = static_cast<YAMLType>(dest);
   if (!convert<YAMLType>::decode(node, val))
+  {
+#if YAML_CPP_NODE_HAS_MARK
     throw TypedBadConversion<T>(node.Mark());
+#else
+    throw TypedBadConversion<T>();
+#endif
+  }
   dest = static_cast<T>(val);
 }
 
