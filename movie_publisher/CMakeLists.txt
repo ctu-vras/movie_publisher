@@ -59,7 +59,7 @@ else()
   # On Ubuntu Focal, the installed CMake file points to wrong directory; we thus ignore it here
   # target_include_directories(yaml-cpp INTERFACE "${YAML_CPP_INCLUDE_DIRS}")
 endif()
-if (${yaml-cpp_VERSION} VERSION_LESS 0.5.3)
+if ("${yaml-cpp_VERSION}" VERSION_LESS "0.5.3")
   set(YAML_CPP_NODE_HAS_MARK 0)
 else()
   set(YAML_CPP_NODE_HAS_MARK 1)
@@ -122,11 +122,14 @@ add_executable(movie_to_bag_node nodes/movie_to_bag.cpp)
 target_link_libraries(movie_to_bag_node movie_to_bag ${catkin_LIBRARIES})
 set_target_properties(movie_to_bag_node PROPERTIES OUTPUT_NAME movie_to_bag PREFIX "")
 
+add_executable(movies_to_bags nodes/movies_to_bags.cpp)
+target_link_libraries(movies_to_bags PUBLIC movie_to_bag ${catkin_LIBRARIES} PRIVATE std::filesystem)
+
 add_library(${PROJECT_NAME}_nodelet nodelets/${PROJECT_NAME}_nodelet.cpp)
 target_link_libraries(${PROJECT_NAME}_nodelet PUBLIC movie_reader ${catkin_LIBRARIES})
 cras_node_from_nodelet(${PROJECT_NAME}_nodelet ${PROJECT_NAME}::MoviePublisherNodelet OUTPUT_NAME ${PROJECT_NAME} ANONYMOUS)
 
-install(TARGETS movie_to_bag_node
+install(TARGETS movie_to_bag_node movies_to_bags
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

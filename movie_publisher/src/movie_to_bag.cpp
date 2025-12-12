@@ -159,19 +159,26 @@ std::string MovieToBagMetadataProcessor::getPrefixedTopic(const std::string& top
 std::shared_ptr<MovieToBagMetadataProcessor> MovieToBag::createMetadataProcessor(const std::string& bagFilename,
   const std::string& transport, const cras::BoundParamHelperPtr& params)
 {
+  return this->createMetadataProcessor(bagFilename, transport, params, "movie");
+}
+
+std::shared_ptr<MovieToBagMetadataProcessor> MovieToBag::createMetadataProcessor(const std::string& bagFilename,
+  const std::string& transport, const cras::BoundParamHelperPtr& params, const std::string& topic)
+{
   return std::make_shared<MovieToBagMetadataProcessor>(this->log, bagFilename, transport,
-    [this](const std::string& name) {return this->resolveName(name);}, params);
+    [this](const std::string& name) {return this->resolveName(name);}, params, topic);
 }
 
 MovieToBagMetadataProcessor::MovieToBagMetadataProcessor(
   const cras::LogHelperPtr& log, const std::string& bagFilename, const std::string& transport,
-  const std::function<std::string(const std::string&)>& resolveName, const cras::BoundParamHelperPtr& params)
+  const std::function<std::string(const std::string&)>& resolveName, const cras::BoundParamHelperPtr& params,
+  const std::string& topic)
   : cras::HasLogger(log), transport(transport), resolveName(resolveName)
 {
   this->imageCodecs = std::make_unique<image_transport_codecs::ImageTransportCodecs>(log);
-  this->topic = params->getParam("topic", "movie");
+  this->topic = params->getParam("topic", topic);
 
-  const auto bagDir = fs::path(bagFilename).parent_path();
+  const auto bagDir = fs::absolute(fs::path(bagFilename)).parent_path();
   try
   {
     fs::create_directories(bagDir);
