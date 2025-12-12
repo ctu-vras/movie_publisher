@@ -34,9 +34,9 @@ namespace movie_publisher
 class MovieToBagMetadataProcessor : public MovieMetadataProcessor, protected cras::HasLogger
 {
 public:
-  explicit MovieToBagMetadataProcessor(const cras::LogHelperPtr& log, const std::string& bagFilename,
+  MovieToBagMetadataProcessor(const cras::LogHelperPtr& log, const std::string& bagFilename,
     const std::string& transport, const std::function<std::string(const std::string&)>& resolveName,
-    const cras::BoundParamHelperPtr& params);
+    const cras::BoundParamHelperPtr& params, const std::string& topic = "movie");
   ~MovieToBagMetadataProcessor() override;
 
   void close();
@@ -177,6 +177,10 @@ protected:
   virtual std::unique_ptr<MovieReaderRos> createReader(const cras::BoundParamHelperPtr& params);
 
   virtual std::shared_ptr<MovieToBagMetadataProcessor> createMetadataProcessor(
+    const std::string& bagFilename, const std::string& transport, const cras::BoundParamHelperPtr& params,
+    const std::string& topic);
+
+  std::shared_ptr<MovieToBagMetadataProcessor> createMetadataProcessor(
     const std::string& bagFilename, const std::string& transport, const cras::BoundParamHelperPtr& params);
 
   std::unique_ptr<MovieReaderRos> movieReader;  //!< The movie reader.
