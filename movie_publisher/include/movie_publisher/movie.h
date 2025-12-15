@@ -66,6 +66,13 @@ public:
   MoviePlaybackState::ConstPtr playbackState() const;
 
   /**
+   * \brief Convert the given stream time to absolute ROS time.
+   * \param [in] streamTime Stream time (based on the whole movie).
+   * \return The corresponding ROS time.
+   */
+  ros::Time convertTime(const StreamTime& streamTime) const;
+
+  /**
    * \brief Limit the part of the movie returned by nextFrame() calls to the given subclip.
    *
    * When all arguments are empty, the whole movie is played. If only `start` is non-empty, the movie plays from `start`

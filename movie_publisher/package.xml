@@ -22,6 +22,7 @@
   <build_depend>cras_topic_tools</build_depend>
   <build_depend>eigen</build_depend>
   <build_depend>ffmpeg-dev</build_depend>
+  <build_depend>fmt</build_depend>
   <build_depend>image_geometry</build_depend>
   <build_depend>image_transport</build_depend>
   <build_depend>image_transport_codecs</build_depend>
@@ -29,6 +30,7 @@
   <build_depend>muparser</build_depend>
   <build_depend>nodelet</build_depend>
   <build_depend>rosbag</build_depend>
+  <build_depend>rosfmt</build_depend>
   <build_depend>tf2</build_depend>
   <build_depend>tf2_geometry_msgs</build_depend>
   <build_depend>tf2_msgs</build_depend>
@@ -45,6 +47,7 @@
   <exec_depend>muparser</exec_depend>
   <exec_depend>nodelet</exec_depend>
   <exec_depend>rosbag</exec_depend>
+  <exec_depend>rosfmt</exec_depend>
   <exec_depend>tf2</exec_depend>
   <exec_depend>tf2_geometry_msgs</exec_depend>
   <exec_depend>tf2_msgs</exec_depend>

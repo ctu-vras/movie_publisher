@@ -172,6 +172,36 @@ struct MovieOpenConfig final
    */
   cras::expected<void, std::string> setMetadataTypes(const std::unordered_set<MetadataType>& types);
 
+  /**
+   * \brief Get the specification of subclip to play.
+   * \return The subclip specification (start, end, duration).
+   */
+  std::tuple<cras::optional<StreamTime>, cras::optional<StreamTime>, cras::optional<StreamDuration>> getSubclip() const;
+
+  /**
+   * \brief Limit the part of the movie returned by nextFrame() calls to the given subclip.
+   *
+   * When all arguments are empty, the whole movie is played. If only `start` is non-empty, the movie plays from `start`
+   * to movie end. If only `end` is non-empty, the movie plays from the movie start to `end`. If only `duration` is
+   * non-empty, the movie plays from the movie start for `duration` seconds. If only `start` and `duration` are
+   * non-empty, the movie plays from `start` to `start+duration`. If only `end` and `duration` are non-empty, the movie
+   * plays from `end-duration` to `duration`. If only `start` and `end` are non-empty, the movie plays from `start` to
+   * `end`.
+   *
+   * Error is returned when either:
+   *  - all three arguments are non-empty
+   *  - `end` is before `start`
+   *  - `duration` is not positive
+   *
+   * \param[in] start The start time (relative to movie start).
+   * \param[in] end The end time (relative to movie start).
+   * \param[in] duration The duration.
+   * \return Nothing or error message.
+   */
+  cras::expected<void, std::string> setSubClip(
+    const cras::optional<StreamTime>& start, const cras::optional<StreamTime>& end,
+    const cras::optional<StreamDuration>& duration);
+
   using Ptr = std::shared_ptr<MovieOpenConfig>;
   using ConstPtr = std::shared_ptr<const MovieOpenConfig>;
 

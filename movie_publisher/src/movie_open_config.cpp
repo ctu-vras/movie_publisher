@@ -57,6 +57,10 @@ struct MovieOpenConfig::Impl
   cras::BoundParamHelperPtr rosParams {};  //!< ROS/YAML parameters that configure the reader and metadata extractors.
 
   std::unordered_set<MetadataType> metadataTypes {};  //!< Types of metadata to be extracted. Defaults to all.
+
+  cras::optional<StreamTime> subclipStart {};  //!< Optional specification of subclip start.
+  cras::optional<StreamTime> subclipEnd {};  //!< Optional specification of subclip end.
+  cras::optional<StreamDuration> subclipDuration {};  //!< Optional specification of subclip duration.
 };
 
 MovieOpenConfig::MovieOpenConfig(const cras::BoundParamHelperPtr& rosParams) : data(new Impl())
@@ -304,6 +308,31 @@ std::unordered_set<MetadataType> MovieOpenConfig::metadataTypes() const
 cras::expected<void, std::string> MovieOpenConfig::setMetadataTypes(const std::unordered_set<MetadataType>& types)
 {
   this->data->metadataTypes = types;
+  return {};
+}
+
+std::tuple<cras::optional<StreamTime>, cras::optional<StreamTime>, cras::optional<StreamDuration>>
+MovieOpenConfig::getSubclip() const
+{
+  return std::make_tuple(this->data->subclipStart, this->data->subclipEnd, this->data->subclipDuration);
+}
+
+cras::expected<void, std::string> MovieOpenConfig::setSubClip(const cras::optional<StreamTime>& start,
+  const cras::optional<StreamTime>& end, const cras::optional<StreamDuration>& duration)
+{
+  if (start.has_value() && end.has_value() && duration.has_value())
+    return cras::make_unexpected("At least one of start, end and duration must be unset.");
+
+  if (end.has_value() && start.has_value() && *end < *start)
+    return cras::make_unexpected("End cannot be before start.");
+
+  if (duration.has_value() && duration->toRosDuration().toSec() < 0.0)
+    return cras::make_unexpected("Duration must be greater than 0.");
+
+  this->data->subclipStart = start;
+  this->data->subclipEnd = end;
+  this->data->subclipDuration = duration;
+
   return {};
 }
 

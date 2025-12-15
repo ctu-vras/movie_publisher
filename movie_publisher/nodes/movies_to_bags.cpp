@@ -12,6 +12,8 @@
 #include <string>
 #include <thread>
 
+#include <fmt/format.h>
+
 #include CXX_FILESYSTEM_INCLUDE
 namespace fs = CXX_FILESYSTEM_NAMESPACE;
 
@@ -175,6 +177,7 @@ protected:
     std::string movie;
     std::string bag;
     std::string topic;
+    std::string frameId;
     cras::optional<std::pair<StreamTime, StreamTime>> subclip;
   };
 
@@ -183,6 +186,10 @@ protected:
     this->params = params;
     this->clusterByUniqueCameraName = params->getParam("cluster_by_unique_camera_name", false);
     this->transport = params->getParam("transport", "compressed");
+    this->frameIdTemplate = params->getParam("frame_id_template", this->frameIdTemplate);
+    this->topicTemplate = params->getParam("topic_template", this->topicTemplate);
+    this->bagTemplate = params->getParam("bag_template", this->bagTemplate);
+    this->appendToBags = params->getParam("append_to_bags", false);
   }
 
   std::unique_ptr<MovieReaderRos> createReader(const cras::BoundParamHelperPtr& params)
@@ -199,8 +206,7 @@ protected:
 
   cras::expected<void, std::string> run(const std::list<MovieToBagAssignment>& moviesAndBags)
   {
-    std::unordered_map<std::string, size_t> camNumbers;
-    for (const auto& [movie, bag, topic, maybeSubclip] : moviesAndBags)
+    for (const auto& [movie, bag, topic, frameId, maybeSubclip] : moviesAndBags)
     {
       if (!this->ok())
         break;
@@ -217,10 +223,15 @@ protected:
       auto config = *maybeConfig;
       config.metadataProcessors().push_back(metadataProcessor);
 
-      if (camNumbers.find(topic) == camNumbers.end())
-        camNumbers[topic] = camNumbers.size();
-      config.setFrameId("external_cam_" + cras::to_string(camNumbers[topic]));
+      config.setFrameId(frameId);
       config.setOpticalFrameId(config.frameId() + "_optical_frame");
+
+      if (maybeSubclip.has_value())
+      {
+        config.setSubClip(maybeSubclip->first, maybeSubclip->second, {});
+        CRAS_INFO("Limiting movie to %s - %s",
+          cras::to_string(maybeSubclip->first).c_str(), cras::to_string(maybeSubclip->second).c_str());
+      }
 
       const auto maybeMovie = this->movieReader->open(movie, config);
       if (!maybeMovie.has_value())
@@ -230,6 +241,8 @@ protected:
         continue;
       }
       auto openMovie = *maybeMovie;
+
+      CRAS_INFO("Writing movie %s to bag %s", movie.c_str(), bag.c_str());
 
       if (maybeSubclip.has_value())
         openMovie->setSubClip(maybeSubclip->first, maybeSubclip->second, {});
@@ -280,7 +293,9 @@ protected:
     for (const auto& movie : movies)
     {
       const std::string bag = movie + ".bag";
-      moviesAndBags.push_back(MovieToBagAssignment{movie, bag, "movie"});
+      const auto topic = fmt::format(this->topicTemplate, fmt::arg("cam_num", 0));
+      const auto frameId = fmt::format(this->frameIdTemplate, fmt::arg("cam_num", 0));
+      moviesAndBags.push_back(MovieToBagAssignment{movie, bag, topic, frameId, {}});
     }
     return this->run(moviesAndBags);
   }
@@ -302,15 +317,17 @@ protected:
         continue;
       }
 
-      const auto openedMovie = *maybeMovie;
+      const auto& openedMovie = *maybeMovie;
       const auto metadata = openedMovie->staticMetadata();
       auto maybeCamName = metadata->getCameraUniqueName();
       if (!maybeCamName.has_value())
         maybeCamName = metadata->getCameraGeneralName();
-      const auto camName = maybeCamName.value_or(movie);
+      const auto camName = cras::toValidRosName(maybeCamName.value_or(movie), true, movie);
 
-      const std::string bag = cras::toValidRosName(camName, true, movie) + ".bag";
-      moviesAndBags.push_back(MovieToBagAssignment{movie, bag, "movie"});
+      const auto bag = fmt::format(this->bagTemplate, fmt::arg("cam_num", 0), fmt::arg("cam_name", camName));
+      const auto topic = fmt::format(this->topicTemplate, fmt::arg("cam_num", 0), fmt::arg("cam_name", camName));
+      const auto frameId = fmt::format(this->frameIdTemplate, fmt::arg("cam_num", 0), fmt::arg("cam_name", camName));
+      moviesAndBags.push_back(MovieToBagAssignment{movie, bag, topic, frameId, {}});
     }
 
     return this->run(moviesAndBags);
@@ -319,14 +336,87 @@ protected:
   cras::expected<void, std::string> runMoviesAndBags(
     const std::list<std::string>& movies, const std::list<std::string>& bags)
   {
+    auto maybeConfig = this->movieReader->createDefaultConfig();
+    if (!maybeConfig.has_value())
+      return cras::make_unexpected("Could not create config for movie reader.");
+
+    std::unordered_map<std::string, std::tuple<std::string, size_t, ros::Time, ros::Time>> movieInfo;
+    std::unordered_map<std::string, size_t> camNums;
+
+    for (const auto& movie : movies)
+    {
+      const auto maybeMovie = this->movieReader->open(movie, *maybeConfig);
+      if (!maybeMovie.has_value())
+      {
+        CRAS_WARN("Failed to open movie file '%s' due to the following error: %s",
+          movie.c_str(), maybeMovie.error().c_str());
+        continue;
+      }
+
+      const auto& openedMovie = *maybeMovie;
+      const auto& info = openedMovie->info();
+      const auto metadata = openedMovie->staticMetadata();
+      const auto startTime = openedMovie->convertTime(info->streamStart());
+      const auto endTime = openedMovie->convertTime(info->streamEnd());
+
+      auto maybeCamName = metadata->getCameraUniqueName();
+      if (!maybeCamName.has_value())
+        maybeCamName = metadata->getCameraGeneralName();
+      const auto camName = cras::toValidRosName(maybeCamName.value_or(movie), true, movie);
+
+      if (camNums.find(camName) == camNums.end())
+        camNums[camName] = camNums.size();
+
+      movieInfo[movie] = std::make_tuple(camName, camNums[camName], startTime, endTime);
+    }
+
     std::list<MovieToBagAssignment> moviesAndBags;
-    // TODO
+
+    for (const auto& bag : bags)
+    {
+      if (!fs::exists(bag))
+      {
+        CRAS_WARN("Bag file %s does not exist.", bag.c_str());
+        continue;
+      }
+      CRAS_INFO("Reading index of bag %s", bag.c_str());
+      const rosbag::Bag openBag(bag, rosbag::BagMode::Read);
+      rosbag::View bagView(openBag);
+      const auto bagStart = bagView.getBeginTime();
+      const auto bagEnd = bagView.getEndTime();
+
+      for (const auto& [movie, info] : movieInfo)
+      {
+        const auto& [camName, camNum, movieStart, movieEnd] = info;
+        if (movieStart >= bagEnd || movieEnd <= bagStart)
+          continue;
+        const auto bagName = this->appendToBags ? bag : fmt::format(this->bagTemplate,
+          fmt::arg("cam_num", camNum), fmt::arg("cam_name", camName), fmt::arg("bag", bag),
+          fmt::arg("bag_no_ext", bag.substr(0, bag.length() - 4)));
+        const auto topic = fmt::format(this->topicTemplate, fmt::arg("cam_num", camNum), fmt::arg("cam_name", camName));
+        const auto frameId = fmt::format(this->frameIdTemplate,
+          fmt::arg("cam_num", camNum), fmt::arg("cam_name", camName));
+
+        const auto subclipStartRos = std::max(movieStart, bagStart);
+        const auto subclipEndRos = std::min(movieEnd, bagEnd);
+        const StreamTime subclipStart(StreamDuration(subclipStartRos - movieStart));
+        const StreamTime subclipEnd(StreamDuration(subclipEndRos - movieStart));
+
+        moviesAndBags.push_back(
+          MovieToBagAssignment{movie, bagName, topic, frameId, std::pair{subclipStart, subclipEnd}});
+      }
+    }
+
     return this->run(moviesAndBags);
   }
 
   cras::BoundParamHelperPtr params;
   bool clusterByUniqueCameraName {false};
   std::string transport;
+  std::string frameIdTemplate {"external_cam_{cam_num}"};
+  std::string topicTemplate {"external_cams/cam_{cam_num}"};
+  std::string bagTemplate {"{bag_no_ext}.external_cams.bag"};
+  bool appendToBags {false};
 
   std::unique_ptr<MovieReaderRos> movieReader;  //!< The movie reader.
   std::unordered_map<std::string, MoviePtr> movies;  //!< The opened movies.
