@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   nodelet
   rosbag
   roscpp
+  rosfmt
   sensor_msgs
   tf2
   tf2_geometry_msgs

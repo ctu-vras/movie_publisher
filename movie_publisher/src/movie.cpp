@@ -123,6 +123,15 @@ cras::expected<void, std::string> Movie::open()
   info->setMetadataStartTime(this->data->metadataManager->getCreationTime().value_or(ros::Time{}));
   info->setMetadataRotation(this->data->metadataManager->getRotation().value_or(0));
 
+  // If a subclip is specified in config, set it now so that metadata timestamps correspond to the subclip
+  const auto& [subclipStart, subclipEnd, subclipDuration] = config.getSubclip();
+  if (subclipStart.has_value() || subclipEnd.has_value() || subclipDuration.has_value())
+  {
+    const auto result = this->setSubClip(subclipStart, subclipEnd, subclipDuration, false);
+    if (!result.has_value())
+      return result;
+  }
+
   this->data->extractMetadata();
 
   if (info->metadataRotation() != 0)
@@ -475,6 +484,11 @@ MetadataExtractor::Ptr Movie::staticMetadata() const
 MoviePlaybackState::ConstPtr Movie::playbackState() const
 {
   return this->data->playbackState;
+}
+
+ros::Time Movie::convertTime(const StreamTime& streamTime) const
+{
+  return this->data->getTimestamp(streamTime);
 }
 
 MoviePlaybackState::Ptr Movie::_playbackState()
