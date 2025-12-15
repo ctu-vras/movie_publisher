@@ -19,6 +19,7 @@ extern "C"
 
 #include <cras_cpp_common/type_utils.hpp>
 #include <movie_publisher/metadata/LibavStreamMetadataExtractor.h>
+#include <movie_publisher/metadata_manager.h>
 #include <pluginlib/class_list_macros.h>
 
 namespace movie_publisher
@@ -29,15 +30,18 @@ struct LibavStreamMetadataPrivate
   const AVFormatContext* avFormatContext;
   size_t streamIndex;
   AVStream* stream;
+  std::weak_ptr<MetadataManager> manager;
 };
 
 LibavStreamMetadataExtractor::LibavStreamMetadataExtractor(
-  const cras::LogHelperPtr& log, const AVFormatContext* avFormatContext, const size_t streamIndex)
+  const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager, const AVFormatContext* avFormatContext,
+  const size_t streamIndex)
   : MetadataExtractor(log), data(new LibavStreamMetadataPrivate())
 {
   this->data->avFormatContext = avFormatContext;
   this->data->streamIndex = streamIndex;
   this->data->stream = this->data->avFormatContext->streams[this->data->streamIndex];
+  this->data->manager = manager;
 
   AVDictionaryEntry* tag = nullptr;
   while ((tag = av_dict_get(this->data->avFormatContext->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
@@ -88,9 +92,25 @@ cras::optional<ros::Time> LibavStreamMetadataExtractor::getCreationTime()
   if (creationTimeEntry == nullptr)
     return cras::nullopt;
 
+  ros::Duration timezoneOffset;
+  {
+    const auto manager = this->data->manager.lock();
+    const auto defaultOffset = manager->getCache()->latest.defaultTimezoneOffset();
+    if (defaultOffset.has_value() && defaultOffset->has_value())
+      timezoneOffset = **defaultOffset;
+  }
+
   try
   {
-    const auto result = cras::parseTime(creationTimeEntry->value);
+    auto result = cras::parseTime(creationTimeEntry->value, timezoneOffset);
+
+    {
+      const auto manager = this->data->manager.lock();
+      const auto offset = manager->getCache()->latest.creationTimeOffset();
+      if (offset.has_value() && offset->has_value())
+        result += **offset;
+    }
+
     CRAS_DEBUG_NAMED("libav_stream",
       "Creation time %.09f read from movie metadata %s.", result.toSec(), creationTimeEntry->key);
     return result;
@@ -251,7 +271,7 @@ MetadataExtractor::Ptr LibavStreamMetadataExtractorPlugin::getExtractor(const Me
     return nullptr;
 
   return std::make_shared<LibavStreamMetadataExtractor>(
-    params.log, params.avFormatContext, params.info->movieStreamIndex());
+    params.log, params.manager, params.avFormatContext, params.info->movieStreamIndex());
 }
 
 }

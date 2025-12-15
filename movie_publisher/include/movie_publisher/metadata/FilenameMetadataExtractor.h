@@ -26,16 +26,19 @@ public:
   /**
    * \brief Constructor.
    * \param[in] log Logger.
+   * \param[in] manager Metadata manager.
    * \param[in] filename Filename of the movie.
    */
-  FilenameMetadataExtractor(const cras::LogHelperPtr& log, const std::string& filename);
+  FilenameMetadataExtractor(const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
+    const std::string& filename);
 
   std::string getName() const override;
   int getPriority() const override;
   cras::optional<ros::Time> getCreationTime() override;
 
 private:
-  std::string filename;  //!< Filename of the movie.
+  struct Impl;
+  std::unique_ptr<Impl> data;
 };
 
 /**

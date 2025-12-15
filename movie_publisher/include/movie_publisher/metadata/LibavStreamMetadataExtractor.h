@@ -32,11 +32,13 @@ public:
   /**
    * \brief Constructor.
    * \param[in] log Logger.
+   * \param[in] manager Metadata manager.
    * \param[in] avFormatContext LibAV context of the open movie.
    * \param[in] streamIndex Index of the stream in the open movie.
    */
   LibavStreamMetadataExtractor(
-    const cras::LogHelperPtr& log, const AVFormatContext* avFormatContext, size_t streamIndex);
+    const cras::LogHelperPtr& log, const std::weak_ptr<MetadataManager>& manager,
+    const AVFormatContext* avFormatContext, size_t streamIndex);
   ~LibavStreamMetadataExtractor() override;
 
   std::string getName() const override;

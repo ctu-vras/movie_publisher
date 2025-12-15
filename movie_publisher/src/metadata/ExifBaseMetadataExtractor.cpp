@@ -114,18 +114,25 @@ cras::optional<ros::Time> ExifBaseMetadataExtractor::getCreationTime()
   auto dateStr = maybeDate->value;
 
   const auto maybeOffset = this->getExifOffsetTimeOriginal();
-  ros::Duration offset;
+  ros::Duration timezoneOffset;
   if (maybeOffset.has_value())
   {
     try
     {
-      offset = cras::parseTimezoneOffset(maybeOffset->value);
+      timezoneOffset = cras::parseTimezoneOffset(maybeOffset->value);
       tags.emplace_back(maybeOffset->key);
     }
     catch (const std::invalid_argument& e)
     {
       CRAS_WARN_NAMED("exif_base", "Error parsing OffsetTimeOriginal: %s", e.what());
     }
+  }
+  else
+  {
+    const auto manager = this->data->manager.lock();
+    const auto defaultOffset = manager->getCache()->latest.defaultTimezoneOffset();
+    if (defaultOffset.has_value() && defaultOffset->has_value())
+      timezoneOffset = **defaultOffset;
   }
 
   const auto maybeSubsec = this->getExifSubSecTimeOriginal();
@@ -137,9 +144,16 @@ cras::optional<ros::Time> ExifBaseMetadataExtractor::getCreationTime()
 
   try
   {
-    ros::Time result = cras::parseTime(dateStr, offset);
+    ros::Time result = cras::parseTime(dateStr, timezoneOffset);
     if (result.isZero())
       return cras::nullopt;
+
+    {
+      const auto manager = this->data->manager.lock();
+      const auto offset = manager->getCache()->latest.creationTimeOffset();
+      if (offset.has_value() && offset->has_value())
+        result += **offset;
+    }
 
     CRAS_DEBUG_NAMED("exif_base", "Creation time read from EXIF tags %s.", cras::to_string(tags).c_str());
     return result;

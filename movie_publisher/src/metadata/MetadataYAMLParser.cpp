@@ -19,6 +19,7 @@
 #include <gps_common/GPSFix.h>
 #include <gps_common/GPSStatus.h>
 #include <movie_publisher/metadata_type.h>
+#include <ros/duration.h>
 #include <ros/time.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Imu.h>
@@ -145,6 +146,25 @@ template<> struct convert<ros::Time>
     catch (const BadConversion&)
     {
       rhs = cras::parseTime(node.as<std::string>());
+    }
+    return true;
+  }
+};
+
+template<> struct convert<ros::Duration>
+{
+  static bool decode(const Node& node, ros::Duration& rhs)
+  {
+    if (!node.IsScalar())
+      return false;
+
+    try
+    {
+      rhs.fromSec(node.as<double>());
+    }
+    catch (const BadConversion&)
+    {
+      rhs = cras::parseDuration(node.as<std::string>());
     }
     return true;
   }

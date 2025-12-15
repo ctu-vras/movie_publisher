@@ -47,6 +47,8 @@ struct LatestMetadataCache::Impl
   cras::optional<cras::optional<geometry_msgs::Transform>> getOpticalFrameTF;
   cras::optional<cras::optional<geometry_msgs::Transform>> getZeroRollPitchTF;
   cras::optional<cras::optional<vision_msgs::Detection2DArray>> getFaces;
+  cras::optional<cras::optional<ros::Duration>> defaultTimezoneOffset;
+  cras::optional<cras::optional<ros::Duration>> creationTimeOffset;
 };
 
 LatestMetadataCache::LatestMetadataCache() : data(new Impl())
@@ -84,6 +86,8 @@ void LatestMetadataCache::clear()
   this->data->getOpticalFrameTF.reset();
   this->data->getZeroRollPitchTF.reset();
   this->data->getFaces.reset();
+  this->data->defaultTimezoneOffset.reset();
+  this->data->creationTimeOffset.reset();
 }
 
 cras::optional<cras::optional<std::string>>& LatestMetadataCache::getCameraGeneralName()
@@ -294,6 +298,26 @@ cras::optional<cras::optional<vision_msgs::Detection2DArray>>& LatestMetadataCac
 const cras::optional<cras::optional<vision_msgs::Detection2DArray>>& LatestMetadataCache::getFaces() const
 {
   return this->data->getFaces;
+}
+
+cras::optional<cras::optional<ros::Duration>>& LatestMetadataCache::defaultTimezoneOffset()
+{
+  return this->data->defaultTimezoneOffset;
+}
+
+const cras::optional<cras::optional<ros::Duration>>& LatestMetadataCache::defaultTimezoneOffset() const
+{
+  return this->data->defaultTimezoneOffset;
+}
+
+cras::optional<cras::optional<ros::Duration>>& LatestMetadataCache::creationTimeOffset()
+{
+  return this->data->creationTimeOffset;
+}
+
+const cras::optional<cras::optional<ros::Duration>>& LatestMetadataCache::creationTimeOffset() const
+{
+  return this->data->creationTimeOffset;
 }
 
 

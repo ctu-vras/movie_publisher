@@ -134,6 +134,22 @@ struct SidecarFileMetadataExtractor::Impl : HasLogger
   void loadTimedMetadata(const std::unordered_set<MetadataType>& metadata);
 };
 
+template<typename T>
+cras::optional<T> readYAML(const YAML::Node& node, const std::string& key)
+{
+  auto realKey = key;
+  if (!node[key] && node[cras::toLower(key)])
+    realKey = cras::toLower(key);
+
+  if (!node[realKey])
+    return {};
+
+  T value {};
+  YAML::updateFromYAML(node[realKey], value);
+  CRAS_DEBUG_STREAM_NAMED("sidecar", realKey << " '" << cras::to_string(value) << "' read from sidecar YAML file.");
+  return value;
+}
+
 void SidecarFileMetadataExtractor::Impl::loadStaticMetadata()
 {
   if (this->staticMetadataLoaded)
@@ -154,12 +170,18 @@ void SidecarFileMetadataExtractor::Impl::loadStaticMetadata()
       manager->getCache()->latest.getCameraUniqueName(),
       manager->getCache()->latest.getCameraSerialNumber(),
     };
-    const auto camMake = manager->getCameraMake().value_or("");
-    const auto camModel = manager->getCameraModel().value_or("");
-    const auto lensMake = manager->getLensMake().value_or("");
-    const auto lensModel = manager->getLensModel().value_or("");
-    const auto genName = manager->getCameraGeneralName().value_or("");
-    const auto uniqueName = manager->getCameraUniqueName().value_or("");
+    const auto camMake = manager->getCameraMake().value_or(
+      this->sidecar ? readYAML<std::string>(*this->sidecar, "CAMERA_MAKE").value_or("") : "");
+    const auto camModel = manager->getCameraModel().value_or(
+      this->sidecar ? readYAML<std::string>(*this->sidecar, "CAMERA_MODEL").value_or("") : "");
+    const auto lensMake = manager->getLensMake().value_or(
+      this->sidecar ? readYAML<std::string>(*this->sidecar, "LENS_MAKE").value_or("") : "");
+    const auto lensModel = manager->getLensModel().value_or(
+      this->sidecar ? readYAML<std::string>(*this->sidecar, "LENS_MODEL").value_or("") : "");
+    const auto genName = manager->getCameraGeneralName().value_or(
+      this->sidecar ? readYAML<std::string>(*this->sidecar, "CAMERA_GENERAL_NAME").value_or("") : "");
+    const auto uniqueName = manager->getCameraUniqueName().value_or(
+      this->sidecar ? readYAML<std::string>(*this->sidecar, "CAMERA_UNIQUE_NAME").value_or("") : "");
     manager->getCache()->latest.getCameraMake() = cached[0];
     manager->getCache()->latest.getCameraModel() = cached[1];
     manager->getCache()->latest.getLensMake() = cached[2];
@@ -369,13 +391,44 @@ void SidecarFileMetadataExtractor::Impl::parseStaticMetadata(const YAML::Node& n
 {
   if (!node)
     return;
-  std::function<bool(const int&)> validateRotation = [this](const int& rotation)
+  const std::function<bool(const int&)> validateRotation = [this](const int& rotation)
   {
     if (rotation == 0 || rotation == 90 || rotation == 180 || rotation == 270)
       return true;
     CRAS_WARN_NAMED("sidecar", "Invalid rotation: %i", rotation);
     return false;
   };
+
+  const std::function<bool(const std::string&)> validateTimezone = [this](const std::string& timezoneStr)
+  {
+    try
+    {
+      cras::parseTimezoneOffset(timezoneStr);
+      return true;
+    }
+    catch (const std::invalid_argument&)
+    {
+      CRAS_WARN_NAMED("sidecar", "Invalid timezone offset: %s", timezoneStr.c_str());
+      return false;
+    }
+  };
+
+  cras::optional<cras::optional<std::string>> defaultTimezoneOffsetStr;
+  readYAML(node, "DEFAULT_TIMEZONE_OFFSET", defaultTimezoneOffsetStr, validateTimezone);
+  if (defaultTimezoneOffsetStr.has_value() && defaultTimezoneOffsetStr->has_value())
+  {
+    latest.defaultTimezoneOffset().emplace().emplace() = cras::parseTimezoneOffset(**defaultTimezoneOffsetStr);
+    const auto manager = this->manager.lock();
+    manager->getCache()->latest.defaultTimezoneOffset() = latest.defaultTimezoneOffset();
+  }
+
+  readYAML(node, "CREATION_TIME_OFFSET", latest.creationTimeOffset());
+  if (latest.creationTimeOffset().has_value() && latest.creationTimeOffset()->has_value())
+  {
+    const auto manager = this->manager.lock();
+    manager->getCache()->latest.creationTimeOffset() = latest.creationTimeOffset();
+  }
+
   readYAML(node, "CAMERA_GENERAL_NAME", latest.getCameraGeneralName());
   readYAML(node, "CAMERA_UNIQUE_NAME", latest.getCameraUniqueName());
   readYAML(node, "CAMERA_SERIAL_NUMBER", latest.getCameraSerialNumber());

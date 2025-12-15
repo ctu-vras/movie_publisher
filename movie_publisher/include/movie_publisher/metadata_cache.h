@@ -117,6 +117,12 @@ struct LatestMetadataCache final
   cras::optional<cras::optional<vision_msgs::Detection2DArray>>& getFaces();
   const cras::optional<cras::optional<vision_msgs::Detection2DArray>>& getFaces() const;
 
+  cras::optional<cras::optional<ros::Duration>>& defaultTimezoneOffset();
+  const cras::optional<cras::optional<ros::Duration>>& defaultTimezoneOffset() const;
+
+  cras::optional<cras::optional<ros::Duration>>& creationTimeOffset();
+  const cras::optional<cras::optional<ros::Duration>>& creationTimeOffset() const;
+
 private:
   struct Impl;
   std::shared_ptr<Impl> data;  //!< PIMPL

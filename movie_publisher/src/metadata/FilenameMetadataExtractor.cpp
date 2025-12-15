@@ -11,6 +11,7 @@
 
 #include <cras_cpp_common/type_utils.hpp>
 #include <movie_publisher/metadata/FilenameMetadataExtractor.h>
+#include <movie_publisher/metadata_manager.h>
 #include <pluginlib/class_list_macros.h>
 
 #include CXX_FILESYSTEM_INCLUDE
@@ -20,9 +21,18 @@ namespace fs = CXX_FILESYSTEM_NAMESPACE;
 namespace movie_publisher
 {
 
-FilenameMetadataExtractor::FilenameMetadataExtractor(const cras::LogHelperPtr& log, const std::string& filename)
-  : MetadataExtractor(log), filename(filename)
+struct FilenameMetadataExtractor::Impl
 {
+  std::string filename;  //!< Filename of the movie.
+  std::weak_ptr<MetadataManager> manager;  //!< Metadata manager.
+};
+
+FilenameMetadataExtractor::FilenameMetadataExtractor(const cras::LogHelperPtr& log,
+  const std::weak_ptr<MetadataManager>& manager, const std::string& filename)
+  : MetadataExtractor(log), data(new Impl())
+{
+  this->data->filename = filename;
+  this->data->manager = manager;
 }
 
 std::string FilenameMetadataExtractor::getName() const
@@ -39,12 +49,28 @@ cras::optional<ros::Time> FilenameMetadataExtractor::getCreationTime()
 {
   std::regex timeRegex {R"(((?:19|20|21)\d{2}).?([01]\d).?([0123]\d).?([012]\d).?([0-5]\d).?([0-5]\d))"};
   std::smatch matches;
-  const auto basename = fs::path(this->filename).filename().string();
+  const auto basename = fs::path(this->data->filename).filename().string();
   if (std::regex_search(basename, matches, timeRegex))
   {
+    ros::Duration timezoneOffset;
+    {
+      const auto manager = this->data->manager.lock();
+      const auto defaultOffset = manager->getCache()->latest.defaultTimezoneOffset();
+      if (defaultOffset.has_value() && defaultOffset->has_value())
+        timezoneOffset = **defaultOffset;
+    }
+
     try
     {
-      const auto time = cras::parseTime(matches[0].str());
+      auto time = cras::parseTime(matches[0].str(), timezoneOffset);
+
+      {
+        const auto manager = this->data->manager.lock();
+        const auto offset = manager->getCache()->latest.creationTimeOffset();
+        if (offset.has_value() && offset->has_value())
+          time += **offset;
+      }
+
       CRAS_DEBUG("Creation time read from filename (%s).", matches[0].str().c_str());
       return time;
     }
@@ -59,7 +85,7 @@ MetadataExtractor::Ptr FilenameMetadataExtractorPlugin::getExtractor(const Metad
   if (params.log == nullptr || params.info->filenameOrURL().empty())
     return nullptr;
 
-  return std::make_shared<FilenameMetadataExtractor>(params.log, params.info->filenameOrURL());
+  return std::make_shared<FilenameMetadataExtractor>(params.log, params.manager, params.info->filenameOrURL());
 }
 
 }
