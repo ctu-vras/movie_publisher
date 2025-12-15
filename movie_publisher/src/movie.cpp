@@ -409,13 +409,23 @@ cras::expected<std::pair<MoviePlaybackState, sensor_msgs::ImageConstPtr>, std::s
       }
 
       // allocate frame buffer for output
-      msg->data.resize(this->data->imageBufferSize);
+      std::vector<uint8_t> msgDataAligned(this->data->imageBufferSizeAligned);
       av_image_fill_arrays(
-        frame->data, frame->linesize, msg->data.data(), this->data->targetPixelFormat,
+        frame->data, frame->linesize, msgDataAligned.data(), this->data->targetPixelFormat,
         tmpFrame->width, tmpFrame->height, av_cpu_max_align());
+
+      this->data->updateSwscale(tmpFrame);
 
       sws_scale(this->data->swscaleContext,
         tmpFrame->data, tmpFrame->linesize, 0, tmpFrame->height, frame->data, frame->linesize);
+
+      msg->data.resize(this->data->imageBufferSizePacked);
+      av_image_copy_to_buffer(msg->data.data(), this->data->imageBufferSizePacked, frame->data, frame->linesize,
+        this->data->targetPixelFormat, tmpFrame->width, tmpFrame->height, 1);
+
+      // Recompute frame arrays without alignment
+      av_image_fill_arrays(
+        frame->data, frame->linesize, nullptr, this->data->targetPixelFormat, tmpFrame->width, tmpFrame->height, 1);
 
       msg->width = tmpFrame->width;
       msg->height = tmpFrame->height;
@@ -446,7 +456,8 @@ void Movie::close()
   *this->data->info = {};
   *this->data->playbackState = {};
   this->data->seekRequest.reset();
-  this->data->imageBufferSize = 0;
+  this->data->imageBufferSizeAligned = 0;
+  this->data->imageBufferSizePacked = 0;
   this->data->filterBuffersrcContext = nullptr;
   this->data->filterBuffersinkContext = nullptr;
   avfilter_graph_free(&this->data->filterGraph);

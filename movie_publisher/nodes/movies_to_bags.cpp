@@ -207,6 +207,7 @@ protected:
 
   cras::expected<void, std::string> run(const std::list<MovieToBagAssignment>& moviesAndBags)
   {
+    size_t i = 0;
     for (const auto& [movie, bag, topic, frameId, maybeSubclip] : moviesAndBags)
     {
       if (!this->ok())
@@ -220,6 +221,8 @@ protected:
         CRAS_WARN("Could not create config for reading %s. Skipping.", movie.c_str());
         continue;
       }
+
+      CRAS_INFO("[%02zu/%zu] Processing movie %s .", i, moviesAndBags.size(), movie.c_str());
 
       auto config = *maybeConfig;
       config.metadataProcessors().push_back(metadataProcessor);
@@ -281,6 +284,8 @@ protected:
       metadataProcessor->close();
       openMovie.reset();
       metadataProcessor.reset();
+
+      i++;
 
       CRAS_INFO("Saved %s to bag file %s on topic %s.", movie.c_str(), bag.c_str(), topic.c_str());
     }

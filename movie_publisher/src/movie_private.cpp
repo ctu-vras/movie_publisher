@@ -586,7 +586,8 @@ void MoviePrivate::updateMetadata(const StreamTime& ptsTime)
     // Reconfigure swscale because it is also rotation-dependent
     if (this->swscaleContext != nullptr)
     {
-      this->imageBufferSize = 0;
+      this->imageBufferSizeAligned = 0;
+      this->imageBufferSizePacked = 0;
       sws_freeContext(this->swscaleContext);
       this->swscaleContext = nullptr;
     }
@@ -802,7 +803,7 @@ cras::expected<void, std::string> MoviePrivate::addRotationFilter()
     return cras::make_unexpected("Error creating filter source buffer");
   }
 
-  AVPixelFormat pix_fmts[] = {this->targetPixelFormat, AV_PIX_FMT_NONE};
+  AVPixelFormat pix_fmts[] = {static_cast<AVPixelFormat>(codecParams->format), AV_PIX_FMT_NONE};
   auto buffersinkParams = av_buffersink_params_alloc();
   buffersinkParams->pixel_fmts = pix_fmts;
   if (avfilter_graph_create_filter(
@@ -869,9 +870,28 @@ cras::expected<void, std::string> MoviePrivate::configSwscale()
   if (!this->swscaleContext)
     cras::make_unexpected("failed to get swscale context");
 
-  this->imageBufferSize = av_image_get_buffer_size(this->targetPixelFormat, outWidth, outHeight, av_cpu_max_align());
-  if (this->imageBufferSize < 0)
+  this->imageBufferSizeAligned = av_image_get_buffer_size(
+    this->targetPixelFormat, outWidth, outHeight, av_cpu_max_align());
+  if (this->imageBufferSizeAligned < 0)
     cras::make_unexpected("failed to get image buffer size");
+
+  this->imageBufferSizePacked = av_image_get_buffer_size(this->targetPixelFormat, outWidth, outHeight, 1);
+  if (this->imageBufferSizePacked < 0)
+    cras::make_unexpected("failed to get image buffer size");
+
+  return {};
+}
+
+cras::expected<void, std::string> MoviePrivate::updateSwscale(const AVFramePtr& frame)
+{
+  this->swscaleContext = sws_getCachedContext(
+    nullptr,
+    frame->width, frame->height, static_cast<AVPixelFormat>(frame->format),
+    frame->width, frame->height, this->targetPixelFormat,
+    SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
+
+  if (!this->swscaleContext)
+    cras::make_unexpected("failed to get swscale context");
 
   return {};
 }

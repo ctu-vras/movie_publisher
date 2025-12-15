@@ -126,7 +126,8 @@ struct MoviePrivate : public cras::HasLogger
 
   // Libav stuff
   AVPixelFormat targetPixelFormat;  //!< The desired output pixel format.
-  int imageBufferSize;  //!< Size of the image buffer.
+  int imageBufferSizeAligned;  //!< Size of the image buffer (memory-aligned according to pipeline needs).
+  int imageBufferSizePacked;  //!< Size of the image buffer (tightly packed, for output image).
   AVFilterGraph* filterGraph {};  //!< Filter graph for decoding effects.
   AVFilterContext* filterBuffersrcContext {};  //!< Context for filter inputs.
   AVFilterContext* filterBuffersinkContext {};  //!< Context for filter outputs.
@@ -229,6 +230,12 @@ struct MoviePrivate : public cras::HasLogger
    * \return Nothing on success, error message otherwise.
    */
   cras::expected<void, std::string> configSwscale();
+  /**
+   * \brief Update the scaling and conversion filter to fit this input frame.
+   * \param[in] frame The frame that will be passed to the filter.
+   * \return Nothing on success, error message otherwise.
+   */
+  cras::expected<void, std::string> updateSwscale(const AVFramePtr& frame);
 };
 
 }
