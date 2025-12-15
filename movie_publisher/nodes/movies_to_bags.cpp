@@ -31,6 +31,7 @@ namespace fs = CXX_FILESYSTEM_NAMESPACE;
 #include <movie_publisher/movie_to_bag.h>
 #include <nodelet/nodelet.h>
 #include <pluginlib/class_list_macros.hpp>
+#include <ros/common.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <sensor_msgs/Imu.h>
@@ -123,7 +124,7 @@ public:
         size_t numFiles {0_sz};
         for (const auto& entry : fs::recursive_directory_iterator(arg))
         {
-          if (!entry.exists() || !entry.is_regular_file())
+          if (!fs::exists(entry) || !fs::is_regular_file(entry))
             continue;
           if (entry.path().extension() == ".bag")
             bags.push_back(entry.path());
@@ -430,7 +431,10 @@ int main(int argc, char* argv[])
   movie_publisher::MoviesToBags node(log);
 
   // We're using NodeWithOptionalMaster, so this is instead of ros::init().
-  const auto options = ros::init_options::AnonymousName | ros::init_options::NoSimTime | ros::init_options::NoRosout;
+  auto options = ros::init_options::AnonymousName | ros::init_options::NoRosout;
+#if ROS_VERSION_MINIMUM(1, 17, 0)
+  options |= ros::init_options::NoSimTime;
+#endif
   node.init(argc, argv, "movies_to_bags", options);
 
   const auto params = node.getPrivateParams();
